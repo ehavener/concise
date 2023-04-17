@@ -1,6 +1,6 @@
 package com.concise.backend.model;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.util.List;
 
 @Entity
@@ -20,6 +20,15 @@ public class UserEntity {
     @OneToMany()
     @JoinColumn(name="user_id")
     private List<VideoEntity> videos;
+
+    public UserEntity(UserDto userDto) {
+        if (userDto.getEmail() != null) {
+            this.email = userDto.getEmail();
+        }
+        if (userDto.getPassword() != null) {
+            this.password = userDto.getPassword();
+        }
+    }
 
     public Integer getId() {
         return id;

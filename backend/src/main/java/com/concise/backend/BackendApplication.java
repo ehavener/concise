@@ -17,4 +17,15 @@ public class BackendApplication {
 	public String hello(@RequestParam(value = "name", defaultValue = "World") String name) {
 		return String.format("Hello %s!", name);
 	}
+
+	// All routes authorized/scoped by user with bearer token
+	// Authorization routes
+	//
+
+	// Product routes
+	// @GetMapping("/videos") (videos list returned for index view)
+	// @GetMapping("/videos/{id}") (video returned with nested transcripts for video page)
+	// @PostMapping("/videos") (video created and returned with nested transcripts after progress completes)
+	//
+
 }

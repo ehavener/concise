@@ -2,13 +2,14 @@ package com.concise.backend;
 
 
 import com.concise.backend.model.UserEntity;
+import com.concise.backend.model.VideoDto;
 import com.concise.backend.model.VideoEntity;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 
 //import javax.servlet.http.HttpServlet;
 //import javax.servlet.http.HttpServletRequest;
@@ -16,13 +17,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
-@Controller
+@RestController
+@RequestMapping("videos")
 public class VideoController {
 
     @Autowired
-    private VideoService videoService;
+    private VideoServiceImpl videoService;
 
-    @Autowired
-    private SessionFactory sessionFactory;
+    @GetMapping(path="/{id}", produces = "application/json")
+    public @ResponseBody Optional<VideoDto> getVideo(@PathVariable int id) {
+        return videoService.getVideoById(id);
+    }
 }
