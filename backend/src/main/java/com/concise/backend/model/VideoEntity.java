@@ -11,7 +11,9 @@ public class VideoEntity {
     @Column(name = "video_id")
     private Integer id;
 
-    // TODO: user_id
+    @OneToMany()
+    @JoinColumn(name="video_id")
+    private List<ChapterEntity> chapters;
 
     @Column(name="title")
     private String title;
@@ -63,5 +65,17 @@ public class VideoEntity {
 
     public void setLanguage(String language) {
         this.language = language;
+    }
+
+    public List<ChapterEntity> getChapters() {
+        return chapters;
+    }
+
+    public void setVotes(List<ChapterEntity> chapters) {
+        this.chapters = chapters;
+    }
+
+    public void addChapter(ChapterEntity chapter) {
+        this.chapters.add(chapter);
     }
 }

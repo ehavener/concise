@@ -11,9 +11,6 @@ public class ChapterEntity {
     @Column(name = "chapter_id")
     private Integer id;
 
-    // TODO: video_id
-    // TODO: user_id
-
     @Column(name="title")
     private String title;
 

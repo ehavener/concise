@@ -17,6 +17,9 @@ public class UserEntity {
     @Column(name="password")
     private String password;
 
+    @OneToMany()
+    @JoinColumn(name="user_id")
+    private List<VideoEntity> videos;
 
     public Integer getId() {
         return id;
@@ -40,5 +43,17 @@ public class UserEntity {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public List<VideoEntity> getVideos() {
+        return videos;
+    }
+
+    public void setVotes(List<VideoEntity> videos) {
+        this.videos = videos;
+    }
+
+    public void addVideo(VideoEntity video) {
+        this.videos.add(video);
     }
 }
