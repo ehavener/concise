@@ -33,7 +33,6 @@ public class UserServiceImpl {
         Optional<UserEntity> userOptional = userRepository.findByEmail(userDto.getEmail());
         if (userOptional.isPresent()) {
             if (passwordEncoder.matches(userDto.getPassword(), userOptional.get().getPassword())) {
-                response.add("http://localhost:8080/home.html");
                 response.add(userOptional.get().getId().toString());
             } else {
                 response.add("Username or password incorrect");

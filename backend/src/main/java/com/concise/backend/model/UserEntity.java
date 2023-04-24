@@ -1,9 +1,12 @@
 package com.concise.backend.model;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+
 import java.util.List;
 
 @Entity
+@AllArgsConstructor
 @Table(name = "users")
 public class UserEntity {
     @Id
@@ -11,7 +14,7 @@ public class UserEntity {
     @Column(name = "user_id")
     private Integer id;
 
-    @Column(name="email")
+    @Column(name="email", unique = true)
     private String email;
 
     @Column(name="password")
@@ -20,6 +23,8 @@ public class UserEntity {
     @OneToMany()
     @JoinColumn(name="user_id")
     private List<VideoEntity> videos;
+
+    public UserEntity() {}
 
     public UserEntity(UserDto userDto) {
         if (userDto.getEmail() != null) {
