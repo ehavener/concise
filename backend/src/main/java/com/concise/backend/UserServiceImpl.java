@@ -20,11 +20,12 @@ public class UserServiceImpl {
     private PasswordEncoder passwordEncoder;
 
     @Transactional
-    public List<String> addUser(UserDto userDto) {
-        List<String> response = new ArrayList<>();
+    public UserDto addUser(UserDto userDto) {
         UserEntity user = new UserEntity(userDto);
-        userRepository.saveAndFlush(user);
-        return response;
+        UserEntity savedUser = userRepository.saveAndFlush(user);
+        UserDto responseUserDto = new UserDto(savedUser);
+        responseUserDto.setPassword(null);
+        return responseUserDto;
     }
 
     public List<String> userLogin(UserDto userDto) {
