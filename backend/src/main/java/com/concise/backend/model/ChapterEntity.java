@@ -1,7 +1,7 @@
 package com.concise.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import java.util.List;
 
 @Entity
 @Table(name = "chapters")
@@ -19,6 +19,11 @@ public class ChapterEntity {
 
     @Column(name="summary")
     private String summary;
+
+    @ManyToOne()
+    @JoinColumn(name = "video_id", referencedColumnName = "video_id")
+    @JsonBackReference
+    private VideoEntity video;
 
     public Integer getId() {
         return id;
@@ -50,5 +55,13 @@ public class ChapterEntity {
 
     public void setSummary(String summary) {
         this.summary = summary;
+    }
+
+    public VideoEntity getVideo() {
+        return video;
+    }
+
+    public void setVideo(VideoEntity video) {
+        this.video = video;
     }
 }

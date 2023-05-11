@@ -1,13 +1,10 @@
 package com.concise.backend.model;
 
-import com.concise.backend.model.UserEntity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
-import java.util.HashSet;
-import java.util.Set;
 
 @Data
 @AllArgsConstructor

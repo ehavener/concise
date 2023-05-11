@@ -1,7 +1,6 @@
 package com.concise.backend;
 
 import com.concise.backend.model.UserDto;
-import com.concise.backend.UserServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;

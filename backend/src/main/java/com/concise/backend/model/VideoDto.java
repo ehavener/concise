@@ -1,6 +1,5 @@
 package com.concise.backend.model;
 
-import com.concise.backend.model.VideoEntity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

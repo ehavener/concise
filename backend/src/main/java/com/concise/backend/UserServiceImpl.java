@@ -2,7 +2,6 @@ package com.concise.backend;
 
 import com.concise.backend.model.UserEntity;
 import com.concise.backend.model.UserDto;
-import com.concise.backend.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
