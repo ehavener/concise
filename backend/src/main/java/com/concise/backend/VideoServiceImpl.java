@@ -3,6 +3,8 @@ package com.concise.backend;
 import com.concise.backend.model.*;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Component
 public class VideoServiceImpl {
@@ -35,12 +38,29 @@ public class VideoServiceImpl {
     @Value("${transcript.api.url}")
     private String transcriptApiUrl;
 
+    public List<VideoWithChaptersDto> getAllVideosWithChapters() {
+        return videoRepository.findAll().stream()
+                .map(video -> new VideoWithChaptersDto(video, chapterService.getChaptersByVideoId(video.getId())))
+                .toList();
+    }
+
     public Optional<VideoDto> getVideoById(int videoId) {
-        Optional<VideoEntity> noteOptional = videoRepository.findById(videoId);
-        if (noteOptional.isPresent()) {
-            return Optional.of(new VideoDto(noteOptional.get()));
+        Optional<VideoEntity> videoOptional = videoRepository.findById(videoId);
+        if (videoOptional.isPresent()) {
+            return Optional.of(new VideoDto(videoOptional.get()));
         }
         return Optional.empty();
+    }
+
+    public Optional<VideoWithChaptersDto> getVideoWithChaptersByYoutubeIdAndLanguage(String youtubeId, String language) {
+        Optional<VideoEntity> videoOptional = videoRepository.findByYoutubeIdAndLanguage(youtubeId, language);
+        if (videoOptional.isPresent()) {
+            VideoEntity video = videoOptional.get();
+            List<ChapterEntity> chapters = chapterService.getChaptersByVideoId(video.getId());
+            return Optional.of(new VideoWithChaptersDto(video, chapters));
+        } else {
+            return Optional.empty();
+        }
     }
 
     @Transactional
@@ -55,45 +75,53 @@ public class VideoServiceImpl {
         List<YouTubeChapterExtractorService.Chapter> chapters = videoInfo.getValue();
 
         // get transcript with HTTP request to youtube-transcript-api microservice
-        String jsonString = getTranscript(createVideoDto.getYoutubeId());
-        // System.out.println("transcript: " + jsonString);
+        String jsonString = getTranscript(createVideoDto.getYoutubeId(), "en"); // TODO: determine language from user setting or dto
 
-        // map transcript to chapter-transcripts
-        // Timeline is in format <Start Time, Chapter Title>
-        System.out.println(chapters);
-
-        // Transcript is a string of JSON in format {"transcript":[ {"text":"- Welcome to the Huberman Lab Podcast,","start":0.36,"duration":1.56} ]}
+        // Transcript is a string of JSON in format {"language": "en", "transcript":[ {"text":"- Welcome to the Huberman Lab Podcast,","start":0.36,"duration":1.56} ]}
         // Parse the JSON transcript to a java file
         TranscriptContainer transcriptContainer = readTranscriptFromJson(jsonString);
+
+        String fullTranscript = transcriptContainer.getTranscript().stream()
+                .map(TranscriptEntry::getText)  // Get the text property of each TranscriptEntry
+                .collect(Collectors.joining(" "))
+                .replaceAll("\\r?\\n|\\r", " ");
 
         // Need to map each TranscriptEntry to a chapter
         List<ChapterTranscript> chapterTranscripts = createChapterTranscripts(chapters, transcriptContainer);
 
         // summarize chapter-transcripts with HTTP request to Cohere API
-        // TODO: only summarize first chapter for now
-        String cohereResponse = getChapterSummary(chapterTranscripts.get(0).getTranscript());
-        chapterTranscripts.get(6).setSummary(cohereResponse);
+        if (chapterTranscripts.size() > 0) {
+            // TODO: only summarizing first chapter for now
+            String cohereResponse = getChapterSummary(chapterTranscripts.get(0).getTranscript());
+            chapterTranscripts.get(0).setSummary(cohereResponse);
+        }
+
+        // TODO: Support transcripts that exceed the context length of the Cohere API
+        String fullSummary = getFullSummary(fullTranscript);
+
 
         // TODO: Translate summaries if necessary with HTTP request to NLLB microservice
         // return summaries and metadata
 
         // Return video with chapters
-        VideoWithChaptersDto createdVideoWithChaptersDto = storeVideoAndChapters(videoTitle, chapters, chapterTranscripts);
+        VideoWithChaptersDto createdVideoWithChaptersDto = storeVideoAndChapters(
+                createVideoDto.getYoutubeId(),
+                videoTitle, fullTranscript, fullSummary,
+                chapters, chapterTranscripts);
 
         return createdVideoWithChaptersDto;
     }
 
-    public String getTranscript(String youtubeId) {
+    public String getTranscript(String youtubeId, String language) {
         RestTemplate restTemplate = new RestTemplate();
-        String url = transcriptApiUrl + youtubeId;
+        String url = transcriptApiUrl + youtubeId + "/" + language;
         HttpHeaders headers = new HttpHeaders();
-        headers.set("Header-Name", "Header-Value");
+        headers.set("Header-Name", "Header-Value"); // TODO: Authenticate microservice properly
         HttpEntity<String> entity = new HttpEntity<>(headers);
         ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
         String responseObject = response.getBody();
         return responseObject;
     }
-
 
     public static String getChapterSummary(String chapterTranscript) {
         CohereApiService cohereApiService = new CohereApiService();
@@ -104,7 +132,37 @@ public class VideoServiceImpl {
         String additionalCommand = "This is a transcript of a chapter from a video.";
         double temperature = 0.3;
 
-        return cohereApiService.summarize(text, length, format, model, additionalCommand, temperature);
+        String jsonString = cohereApiService.summarize(text, length, format, model, additionalCommand, temperature);
+                ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode rootNode = null;
+        try {
+            rootNode = objectMapper.readTree(jsonString);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+        String summary = rootNode.get("summary").asText();
+        return summary;
+    }
+
+    public static String getFullSummary(String fullTranscript) {
+        CohereApiService cohereApiService = new CohereApiService();
+        String text = fullTranscript;
+        String length = "long";
+        String format = "paragraph";
+        String model = "summarize-xlarge";
+        String additionalCommand = "This is a transcript of a video.";
+        double temperature = 0.3;
+
+        String jsonString = cohereApiService.summarize(text, length, format, model, additionalCommand, temperature);
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode rootNode = null;
+        try {
+            rootNode = objectMapper.readTree(jsonString);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+        String summary = rootNode.get("summary").asText();
+        return summary;
     }
 
     public static TranscriptContainer readTranscriptFromJson(String jsonString) {
@@ -118,12 +176,13 @@ public class VideoServiceImpl {
         return transcriptContainer;
     }
 
-    public VideoWithChaptersDto storeVideoAndChapters(String videoTitle, List<YouTubeChapterExtractorService.Chapter> chapters, List<ChapterTranscript> chapterTranscripts) {
+    public VideoWithChaptersDto storeVideoAndChapters(String youtubeId, String videoTitle, String fullTranscript, String fullSummary, List<YouTubeChapterExtractorService.Chapter> chapters, List<ChapterTranscript> chapterTranscripts) {
         // Store video in database
         VideoEntity videoEntity = new VideoEntity();
+        videoEntity.setYoutubeId(youtubeId);
         videoEntity.setTitle(videoTitle);
-        videoEntity.setTranscript("");
-        videoEntity.setSummary("");
+        videoEntity.setTranscript(fullTranscript);
+        videoEntity.setSummary(fullSummary);
         videoEntity.setLanguage("en");
         videoEntity.setUser(userRepository.findById(1L).get());
         VideoEntity createdVideo = addVideo(videoEntity);
@@ -142,8 +201,19 @@ public class VideoServiceImpl {
     }
 
     public static class TranscriptContainer {
+        @JsonProperty("language")
+        private String language;
+
         @JsonProperty("transcript")
         private List<TranscriptEntry> transcript;
+
+        public String getLanguage() {
+            return language;
+        }
+
+        public void setLanguage(String language) {
+            this.language = language;
+        }
 
         public List<TranscriptEntry> getTranscript() {
             return transcript;

@@ -10,7 +10,7 @@ public class VideoEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "video_id")
-    private Integer id;
+    private Long id;
 
     @OneToMany(mappedBy = "video")
     private List<ChapterEntity> chapters;
@@ -27,16 +27,19 @@ public class VideoEntity {
     @Column(name="language")
     private String language;
 
+    @Column(name="youtube_id")
+    private String youtubeId;
+
     @ManyToOne()
     @JoinColumn(name = "user_id", referencedColumnName = "user_id")
     @JsonBackReference
     private UserEntity user;
 
-    public Integer getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(Integer id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
@@ -65,19 +68,23 @@ public class VideoEntity {
     }
 
     public String getLanguage() {
-        return summary;
+        return language;
     }
 
     public void setLanguage(String language) {
         this.language = language;
     }
 
-    public List<ChapterEntity> getChapters() {
-        return chapters;
+    public String getYoutubeId() {
+        return youtubeId;
     }
 
-    public void setVotes(List<ChapterEntity> chapters) {
-        this.chapters = chapters;
+    public void setYoutubeId(String youtubeId) {
+        this.youtubeId = youtubeId;
+    }
+
+    public List<ChapterEntity> getChapters() {
+        return chapters;
     }
 
     public void addChapter(ChapterEntity chapter) {

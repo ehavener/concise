@@ -2,8 +2,6 @@ package com.concise.backend;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import org.springframework.context.annotation.Bean;
@@ -23,25 +21,15 @@ public class BackendApplication {
 		return new WebMvcConfigurer() {
 			@Override
 			public void addCorsMappings(CorsRegistry registry) {
-				registry.addMapping("/api/v1/users/sign-up").allowedOrigins("http://localhost:3000");
-				registry.addMapping("/api/v1/users/login").allowedOrigins("http://localhost:3000");
+				registry.addMapping("/users/sign-up").allowedOrigins("http://localhost:3000");
+				registry.addMapping("/users/login").allowedOrigins("http://localhost:3000");
+				registry.addMapping("/videos/").allowedOrigins("http://localhost:3000");
+				registry.addMapping("/videos/{id}").allowedOrigins("http://localhost:3000");
+				registry.addMapping("/videos/search").allowedOrigins("http://localhost:3000")
+						.allowedMethods("GET", "POST", "HEAD", "OPTIONS")
+						.allowedHeaders("*")
+						.allowCredentials(true);
 			}
 		};
 	}
-
-	@GetMapping("/hello")
-	public String hello(@RequestParam(value = "name", defaultValue = "World") String name) {
-		return String.format("Hello %s!", name);
-	}
-
-	// All routes authorized/scoped by user with bearer token
-	// Authorization routes
-	//
-
-	// Product routes
-	// @GetMapping("/videos") (videos list returned for index view)
-	// @GetMapping("/videos/{id}") (video returned with nested transcripts for video page)
-	// @PostMapping("/videos") (video created and returned with nested transcripts after progress completes)
-	//
-
 }

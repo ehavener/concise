@@ -14,7 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class VideoWithChaptersDto implements Serializable {
-    private Integer id;
+    private Long id;
     private String language;
     private String summary;
     private String title;

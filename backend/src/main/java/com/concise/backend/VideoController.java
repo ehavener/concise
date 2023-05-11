@@ -15,9 +15,19 @@ public class VideoController {
     @Autowired
     private VideoServiceImpl videoService;
 
+    @GetMapping(path="/", produces = "application/json")
+    public @ResponseBody List<VideoWithChaptersDto> getAllVideos() {
+        return videoService.getAllVideosWithChapters(); // TODO: need to secure by userId
+    }
+
     @GetMapping(path="/{id}", produces = "application/json")
     public @ResponseBody Optional<VideoDto> getVideo(@PathVariable int id) {
         return videoService.getVideoById(id);
+    }
+
+    @GetMapping(path="/search", produces = "application/json")
+    public @ResponseBody Optional<VideoWithChaptersDto> getVideo(@RequestParam String youtubeId, @RequestParam String language) {
+        return videoService.getVideoWithChaptersByYoutubeIdAndLanguage(youtubeId, language); // TODO: need to secure by userId
     }
 
     @PostMapping(path="/create", consumes = "application/json", produces = "application/json")
