@@ -38,6 +38,9 @@ public class VideoServiceImpl {
     @Value("${transcript.api.url}")
     private String transcriptApiUrl;
 
+    @Value("${transcript.api.key}")
+    private String transcriptApiKey;
+
     public List<VideoWithChaptersDto> getAllVideosWithChaptersByUserId(Long userId) {
         return videoRepository.findByUserId(userId).stream()
                 .map(video -> new VideoWithChaptersDto(video, chapterService.getChaptersByVideoId(video.getId())))
@@ -68,14 +71,14 @@ public class VideoServiceImpl {
         return videoRepository.saveAndFlush(video);
     }
 
-    public VideoWithChaptersDto createVideoFromYoutubeId(CreateVideoDto createVideoDto, long userId) throws GeneralSecurityException, IOException {
+    public VideoWithChaptersDto createVideoFromYoutubeId(CreateVideoDto createVideoDto, UserEntity user) throws GeneralSecurityException, IOException {
         // get chapters with YouTubeChapterExtractorService.getVideoTimelineById
         Map.Entry<String, List<YouTubeChapterExtractorService.Chapter>> videoInfo = YouTubeChapterExtractorService.getVideoTimelineById(createVideoDto.getYoutubeId());
         String videoTitle = videoInfo.getKey();
         List<YouTubeChapterExtractorService.Chapter> chapters = videoInfo.getValue();
 
         // get transcript with HTTP request to youtube-transcript-api microservice
-        String jsonString = getTranscript(createVideoDto.getYoutubeId(), "en"); // TODO: determine language from user setting or dto
+        String jsonString = getTranscript(createVideoDto.getYoutubeId(), user.getLanguage());
 
         // Transcript is a string of JSON in format {"language": "en", "transcript":[ {"text":"- Welcome to the Huberman Lab Podcast,","start":0.36,"duration":1.56} ]}
         // Parse the JSON transcript to a java file
@@ -104,7 +107,7 @@ public class VideoServiceImpl {
         VideoWithChaptersDto createdVideoWithChaptersDto = storeVideoAndChapters(
                 createVideoDto.getYoutubeId(),
                 videoTitle, fullTranscript, fullSummary,
-                "en", userId, chapters, chapterTranscripts);
+                "en", user.getId(), chapters, chapterTranscripts);
 
         return createdVideoWithChaptersDto;
     }
@@ -113,7 +116,7 @@ public class VideoServiceImpl {
         RestTemplate restTemplate = new RestTemplate();
         String url = transcriptApiUrl + youtubeId + "/" + language;
         HttpHeaders headers = new HttpHeaders();
-        headers.set("Header-Name", "Header-Value"); // TODO: Authenticate microservice properly
+        headers.set("X-API-Key", transcriptApiKey);
         HttpEntity<String> entity = new HttpEntity<>(headers);
         ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
         String responseObject = response.getBody();
@@ -123,7 +126,7 @@ public class VideoServiceImpl {
     public static String getChapterSummary(String chapterTranscript) {
         // Limit is 100,000 characters. 1 minute of audio is roughly 1000 characters.
         // Only first 1:40:00 of a chapter is summarized TODO: consider extending this
-        chapterTranscript = chapterTranscript.substring(0, Math.min(chapterTranscript.length(), 100000));
+        chapterTranscript = chapterTranscript.substring(0, Math.min(chapterTranscript.length(), 10000));
 
         CohereApiService cohereApiService = new CohereApiService();
         String text = chapterTranscript;
@@ -146,9 +149,10 @@ public class VideoServiceImpl {
     }
 
     public static String getFullSummary(String fullTranscript) {
-        // Limit is 100,000 characters. 1 minute of audio is roughly 1000 characters.
-        // Only first 1:40:00 of video is summarized TODO: consider extending this
-        fullTranscript = fullTranscript.substring(0, Math.min(fullTranscript.length(), 100000));
+        // Limit is 100,000 characters but in practice seems closer to 10,000.
+        // 1 minute of audio is roughly 1000 characters.
+        // Only first 1:40:00/10 minutes of video is summarized TODO: consider extending this
+        fullTranscript = fullTranscript.substring(0, Math.min(fullTranscript.length(), 10000));
 
         CohereApiService cohereApiService = new CohereApiService();
         String text = fullTranscript;

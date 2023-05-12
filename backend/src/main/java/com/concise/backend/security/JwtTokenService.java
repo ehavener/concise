@@ -14,7 +14,7 @@ import java.time.Instant;
 @Service
 public class JwtTokenService {
 
-    private static final Duration JWT_TOKEN_VALIDITY = Duration.ofMinutes(60);
+    private static final Duration JWT_TOKEN_VALIDITY = Duration.ofMinutes(60 * 24);
 
     private final Algorithm hmac512;
     private final JWTVerifier verifier;

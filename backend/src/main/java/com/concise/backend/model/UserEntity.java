@@ -20,6 +20,9 @@ public class UserEntity {
     @Column(name="password")
     private String password;
 
+    @Column(name="language")
+    private String language = "en";
+
     @OneToMany()
     @JoinColumn(name="user_id")
     private List<VideoEntity> videos;
@@ -59,11 +62,19 @@ public class UserEntity {
         this.password = password;
     }
 
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
     public List<VideoEntity> getVideos() {
         return videos;
     }
 
-    public void setVotes(List<VideoEntity> videos) {
+    public void setVideos(List<VideoEntity> videos) {
         this.videos = videos;
     }
 

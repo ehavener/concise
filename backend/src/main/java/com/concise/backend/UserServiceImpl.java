@@ -1,5 +1,6 @@
 package com.concise.backend;
 
+import com.concise.backend.model.UpdateUserDto;
 import com.concise.backend.model.UserEntity;
 import com.concise.backend.model.UserDto;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +19,15 @@ public class UserServiceImpl {
         UserEntity savedUser = userRepository.saveAndFlush(user);
         UserDto responseUserDto = new UserDto(savedUser);
         responseUserDto.setPassword(null);
+        return responseUserDto;
+    }
+
+    @Transactional
+    public UpdateUserDto updateUser(UpdateUserDto updateUserDto) {
+        UserEntity user = userRepository.getById(updateUserDto.getId());
+        user.setLanguage(updateUserDto.getLanguage());
+        UserEntity savedUser = userRepository.saveAndFlush(user);
+        UpdateUserDto responseUserDto = new UpdateUserDto(savedUser);
         return responseUserDto;
     }
 }

@@ -42,7 +42,7 @@ public class VideoController {
     @PostMapping(path="/create", consumes = "application/json", produces = "application/json")
     public @ResponseBody VideoWithChaptersDto createVideo(@RequestBody CreateVideoDto createVideoDto) throws GeneralSecurityException, IOException {
         Long userId = getAuthenticatedUserId();
-        return videoService.createVideoFromYoutubeId(createVideoDto, userId);
+        return videoService.createVideoFromYoutubeId(createVideoDto, userRepository.getById(userId));
     }
 
     public Long getAuthenticatedUserId() {
