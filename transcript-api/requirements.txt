@@ -1,0 +1,4 @@
+fastapi
+uvicorn[standard]
+youtube_transcript_api
+urllib3<2.0
