@@ -96,12 +96,9 @@ public class VideoServiceImpl {
             chapterTranscripts.get(0).setSummary(cohereResponse);
         }
 
-        // TODO: Support transcripts that exceed the context length of the Cohere API
         String fullSummary = getFullSummary(fullTranscript);
 
-
         // TODO: Translate summaries if necessary with HTTP request to NLLB microservice
-        // return summaries and metadata
 
         // Return video with chapters
         VideoWithChaptersDto createdVideoWithChaptersDto = storeVideoAndChapters(
@@ -124,6 +121,10 @@ public class VideoServiceImpl {
     }
 
     public static String getChapterSummary(String chapterTranscript) {
+        // Limit is 100,000 characters. 1 minute of audio is roughly 1000 characters.
+        // Only first 1:40:00 of a chapter is summarized TODO: consider extending this
+        chapterTranscript = chapterTranscript.substring(0, Math.min(chapterTranscript.length(), 100000));
+
         CohereApiService cohereApiService = new CohereApiService();
         String text = chapterTranscript;
         String length = "medium";
@@ -145,6 +146,10 @@ public class VideoServiceImpl {
     }
 
     public static String getFullSummary(String fullTranscript) {
+        // Limit is 100,000 characters. 1 minute of audio is roughly 1000 characters.
+        // Only first 1:40:00 of video is summarized TODO: consider extending this
+        fullTranscript = fullTranscript.substring(0, Math.min(fullTranscript.length(), 100000));
+
         CohereApiService cohereApiService = new CohereApiService();
         String text = fullTranscript;
         String length = "long";
