@@ -8,8 +8,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("users")
 public class UserController {
@@ -23,10 +21,5 @@ public class UserController {
         String passHash = passwordEncoder.encode(userDto.getPassword());
         userDto.setPassword(passHash);
         return userService.addUser(userDto);
-    }
-
-    @PostMapping("/login")
-    public List<String> userLogin(@RequestBody UserDto userDto) {
-        return userService.userLogin(userDto);
     }
 }
