@@ -38,22 +38,22 @@ public class VideoServiceImpl {
     @Value("${transcript.api.url}")
     private String transcriptApiUrl;
 
-    public List<VideoWithChaptersDto> getAllVideosWithChapters() {
-        return videoRepository.findAll().stream()
+    public List<VideoWithChaptersDto> getAllVideosWithChaptersByUserId(Long userId) {
+        return videoRepository.findByUserId(userId).stream()
                 .map(video -> new VideoWithChaptersDto(video, chapterService.getChaptersByVideoId(video.getId())))
                 .toList();
     }
 
-    public Optional<VideoDto> getVideoById(int videoId) {
-        Optional<VideoEntity> videoOptional = videoRepository.findById(videoId);
+    public Optional<VideoDto> getVideoByIdAndUserId(long id, long userId) {
+        Optional<VideoEntity> videoOptional = videoRepository.findByIdAndUserId(id, userId);
         if (videoOptional.isPresent()) {
             return Optional.of(new VideoDto(videoOptional.get()));
         }
         return Optional.empty();
     }
 
-    public Optional<VideoWithChaptersDto> getVideoWithChaptersByYoutubeIdAndLanguage(String youtubeId, String language) {
-        Optional<VideoEntity> videoOptional = videoRepository.findByYoutubeIdAndLanguage(youtubeId, language);
+    public Optional<VideoWithChaptersDto> getVideoWithChaptersByYoutubeIdAndLanguageAndUserId(String youtubeId, String language, long userId) {
+        Optional<VideoEntity> videoOptional = videoRepository.findByYoutubeIdAndLanguageAndUserId(youtubeId, language, userId);
         if (videoOptional.isPresent()) {
             VideoEntity video = videoOptional.get();
             List<ChapterEntity> chapters = chapterService.getChaptersByVideoId(video.getId());
@@ -68,7 +68,7 @@ public class VideoServiceImpl {
         return videoRepository.saveAndFlush(video);
     }
 
-    public VideoWithChaptersDto createVideoFromYoutubeId(CreateVideoDto createVideoDto) throws GeneralSecurityException, IOException {
+    public VideoWithChaptersDto createVideoFromYoutubeId(CreateVideoDto createVideoDto, long userId) throws GeneralSecurityException, IOException {
         // get chapters with YouTubeChapterExtractorService.getVideoTimelineById
         Map.Entry<String, List<YouTubeChapterExtractorService.Chapter>> videoInfo = YouTubeChapterExtractorService.getVideoTimelineById(createVideoDto.getYoutubeId());
         String videoTitle = videoInfo.getKey();
@@ -104,7 +104,7 @@ public class VideoServiceImpl {
         VideoWithChaptersDto createdVideoWithChaptersDto = storeVideoAndChapters(
                 createVideoDto.getYoutubeId(),
                 videoTitle, fullTranscript, fullSummary,
-                chapters, chapterTranscripts);
+                "en", userId, chapters, chapterTranscripts);
 
         return createdVideoWithChaptersDto;
     }
@@ -181,15 +181,15 @@ public class VideoServiceImpl {
         return transcriptContainer;
     }
 
-    public VideoWithChaptersDto storeVideoAndChapters(String youtubeId, String videoTitle, String fullTranscript, String fullSummary, List<YouTubeChapterExtractorService.Chapter> chapters, List<ChapterTranscript> chapterTranscripts) {
+    public VideoWithChaptersDto storeVideoAndChapters(String youtubeId, String videoTitle, String fullTranscript, String fullSummary, String language, long userId, List<YouTubeChapterExtractorService.Chapter> chapters, List<ChapterTranscript> chapterTranscripts) {
         // Store video in database
         VideoEntity videoEntity = new VideoEntity();
         videoEntity.setYoutubeId(youtubeId);
         videoEntity.setTitle(videoTitle);
         videoEntity.setTranscript(fullTranscript);
         videoEntity.setSummary(fullSummary);
-        videoEntity.setLanguage("en");
-        videoEntity.setUser(userRepository.findById(1L).get());
+        videoEntity.setLanguage(language);
+        videoEntity.setUser(userRepository.findById(userId).get());
         VideoEntity createdVideo = addVideo(videoEntity);
 
         // Store chapters in database
