@@ -9,10 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -20,6 +17,7 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -41,29 +39,32 @@ public class VideoServiceImpl {
     @Value("${transcript.api.key}")
     private String transcriptApiKey;
 
+    @Value("${summarization.api.url}")
+    private String summarizationApiUrl;
+
+    @Value("${summarization.api.key}")
+    private String summarizationApiKey;
+
     public List<VideoWithChaptersDto> getAllVideosWithChaptersByUserId(Long userId) {
-        return videoRepository.findByUserId(userId).stream()
+        return videoRepository.findAllByUserId(userId).stream()
                 .map(video -> new VideoWithChaptersDto(video, chapterService.getChaptersByVideoId(video.getId())))
                 .toList();
     }
 
-    public Optional<VideoDto> getVideoByIdAndUserId(long id, long userId) {
+    public Optional<VideoWithChaptersDto> getVideoByIdAndUserId(long id, long userId) {
         Optional<VideoEntity> videoOptional = videoRepository.findByIdAndUserId(id, userId);
         if (videoOptional.isPresent()) {
-            return Optional.of(new VideoDto(videoOptional.get()));
+            VideoEntity videoEntity = videoOptional.get();
+            VideoWithChaptersDto videoWithChaptersDto = new VideoWithChaptersDto(videoEntity, chapterService.getChaptersByVideoId(videoEntity.getId()));
+            return Optional.of(videoWithChaptersDto);
         }
         return Optional.empty();
     }
 
-    public Optional<VideoWithChaptersDto> getVideoWithChaptersByYoutubeIdAndLanguageAndUserId(String youtubeId, String language, long userId) {
-        Optional<VideoEntity> videoOptional = videoRepository.findByYoutubeIdAndLanguageAndUserId(youtubeId, language, userId);
-        if (videoOptional.isPresent()) {
-            VideoEntity video = videoOptional.get();
-            List<ChapterEntity> chapters = chapterService.getChaptersByVideoId(video.getId());
-            return Optional.of(new VideoWithChaptersDto(video, chapters));
-        } else {
-            return Optional.empty();
-        }
+    public List<VideoWithChaptersDto> getAllVideosWithChaptersByYoutubeIdAndLanguageAndUserId(String youtubeId, String language, long userId) {
+        return videoRepository.findAllByYoutubeIdAndLanguageAndUserId(youtubeId, language, userId).stream()
+                .map(video -> new VideoWithChaptersDto(video, chapterService.getChaptersByVideoId(video.getId())))
+                .toList();
     }
 
     @Transactional
@@ -92,16 +93,14 @@ public class VideoServiceImpl {
         // Need to map each TranscriptEntry to a chapter
         List<ChapterTranscript> chapterTranscripts = createChapterTranscripts(chapters, transcriptContainer);
 
-        // summarize chapter-transcripts with HTTP request to Cohere API
-        if (chapterTranscripts.size() > 0) {
-            // TODO: only summarizing first chapter for now
-            String cohereResponse = getChapterSummary(chapterTranscripts.get(0).getTranscript());
-            chapterTranscripts.get(0).setSummary(cohereResponse);
+        for (int i = 0; i < chapterTranscripts.size(); i++) {
+            String summary = getSummary(chapterTranscripts.get(i).getTranscript());
+            chapterTranscripts.get(i).setSummary(summary);
         }
 
-        String fullSummary = getFullSummary(fullTranscript);
+        String fullSummary = getSummary(fullTranscript);
 
-        // TODO: Translate summaries if necessary with HTTP request to NLLB microservice
+        // TODO: Translate summaries if necessary with HTTP request to NLLB translation-api microservice
 
         // Return video with chapters
         VideoWithChaptersDto createdVideoWithChaptersDto = storeVideoAndChapters(
@@ -123,54 +122,23 @@ public class VideoServiceImpl {
         return responseObject;
     }
 
-    public static String getChapterSummary(String chapterTranscript) {
-        // Limit is 100,000 characters. 1 minute of audio is roughly 1000 characters.
-        // Only first 1:40:00 of a chapter is summarized TODO: consider extending this
-        chapterTranscript = chapterTranscript.substring(0, Math.min(chapterTranscript.length(), 10000));
-
-        CohereApiService cohereApiService = new CohereApiService();
-        String text = chapterTranscript;
-        String length = "medium";
-        String format = "paragraph";
-        String model = "summarize-xlarge";
-        String additionalCommand = "This is a transcript of a chapter from a video.";
-        double temperature = 0.3;
-
-        String jsonString = cohereApiService.summarize(text, length, format, model, additionalCommand, temperature);
-                ObjectMapper objectMapper = new ObjectMapper();
-        JsonNode rootNode = null;
-        try {
-            rootNode = objectMapper.readTree(jsonString);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-        String summary = rootNode.get("summary").asText();
-        return summary;
-    }
-
-    public static String getFullSummary(String fullTranscript) {
-        // Limit is 100,000 characters but in practice seems closer to 10,000.
-        // 1 minute of audio is roughly 1000 characters.
-        // Only first 1:40:00/10 minutes of video is summarized TODO: consider extending this
-        fullTranscript = fullTranscript.substring(0, Math.min(fullTranscript.length(), 10000));
-
-        CohereApiService cohereApiService = new CohereApiService();
-        String text = fullTranscript;
-        String length = "long";
-        String format = "paragraph";
-        String model = "summarize-xlarge";
-        String additionalCommand = "This is a transcript of a video.";
-        double temperature = 0.3;
-
-        String jsonString = cohereApiService.summarize(text, length, format, model, additionalCommand, temperature);
+    public String getSummary(String transcript) throws JsonProcessingException {
+        RestTemplate restTemplate = new RestTemplate();
+        String url = summarizationApiUrl;
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-API-Key", summarizationApiKey);
+        Map<String, String> map = new HashMap<>();
+        map.put("text", transcript);
         ObjectMapper objectMapper = new ObjectMapper();
-        JsonNode rootNode = null;
-        try {
-            rootNode = objectMapper.readTree(jsonString);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-        String summary = rootNode.get("summary").asText();
+        String json = objectMapper.writeValueAsString(map);
+        HttpEntity<String> entity = new HttpEntity<>(json, headers);
+        System.out.println("url" + url);
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+        String responseBody = response.getBody();
+        ObjectMapper responseObjectMapper = new ObjectMapper();
+        JsonNode jsonNode = responseObjectMapper.readTree(responseBody);
+        String summary = jsonNode.get("summary").asText();
         return summary;
     }
 

@@ -28,15 +28,15 @@ public class VideoController {
     }
 
     @GetMapping(path="/{id}", produces = "application/json")
-    public @ResponseBody Optional<VideoDto> getVideo(@PathVariable int id) {
+    public @ResponseBody Optional<VideoWithChaptersDto> getVideo(@PathVariable int id) {
         Long userId = getAuthenticatedUserId();
         return videoService.getVideoByIdAndUserId(id, userId);
     }
 
     @GetMapping(path="/search", produces = "application/json")
-    public @ResponseBody Optional<VideoWithChaptersDto> getVideo(@RequestParam String youtubeId, @RequestParam String language) {
+    public @ResponseBody List<VideoWithChaptersDto> getAllVideosByYoutubeIdAndLanguage(@RequestParam String youtubeId, @RequestParam String language) {
         Long userId = getAuthenticatedUserId();
-        return videoService.getVideoWithChaptersByYoutubeIdAndLanguageAndUserId(youtubeId, language, userId);
+        return videoService.getAllVideosWithChaptersByYoutubeIdAndLanguageAndUserId(youtubeId, language, userId);
     }
 
     @PostMapping(path="/create", consumes = "application/json", produces = "application/json")
