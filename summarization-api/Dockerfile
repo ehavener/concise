@@ -17,4 +17,9 @@ EXPOSE 8001
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
 
 # docker build -t summarization-api .
-# docker run -p 8001:8001 summarization-api
+# docker run -e API_KEY=... -p 8001:8001 summarization-api
+# docker tag summarization-api:latest ehavener/summarization-api:latest
+# docker push ehavener/summarization-api:latest
+
+# If the CMD does not run automatically you can still start the application by running the below command from within a container instance:
+# API_KEY=... uvicorn main:app --host 0.0.0.0 --port 8001
