@@ -24,7 +24,7 @@ async def get_api_key(api_key_header: str = Depends(api_key_header)):
         )
 
 
-class Text(BaseModel):
+class RequestBodyModel(BaseModel):
     text: str
 
 
@@ -41,18 +41,22 @@ model = model.to(device)
 
 
 @app.post("/summarize/", dependencies=[Depends(get_api_key)])
-async def summarize(text: Text):
+async def summarize(body: RequestBodyModel):
     # Encode input text
-    inputs = tokenizer.encode(text.text, return_tensors="pt")
+    inputs = tokenizer.encode(body.text, return_tensors="pt")
 
     # Move inputs to the device
     inputs = inputs.to(device)
 
-    # Generate output
-    outputs = model.generate(inputs, max_length=1024, temperature=0.7, top_p=1.0, do_sample=True)
+    # Generate output. 75-100 Tokens is around 5 sentences.
+    outputs = model.generate(inputs, max_length=100, temperature=0.7, top_p=1.0, do_sample=True)
+
+    # Remove the pad token id (default is 0 for T5) from the generated output
+    outputs = outputs[0, 1:] if outputs[0, 0] == tokenizer.pad_token_id else outputs[0]
 
     # Decode the output
     summary = tokenizer.decode(outputs[0], skip_special_tokens=True)
     summary = summary.replace("  ", " ")
 
     return {"summary": summary}
+
