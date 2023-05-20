@@ -11,7 +11,7 @@ ADD . /app
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install protobuf
-RUN pip install protobuf
+RUN pip install protobuf==3.20.0
 
 # Make port 80 available to the world outside this container
 EXPOSE 8001
