@@ -49,7 +49,7 @@ async def summarize(body: RequestBodyModel):
     inputs = inputs.to(device)
 
     # Calculate the maximum length for the generate method
-    max_length = max(100, inputs.shape[1] + 50)
+    max_length = inputs.shape[1] + 100
 
     # Generate output. We want around 50 tokens of output.
     outputs = model.generate(inputs, max_length=max_length, temperature=0.7, top_p=1.0, do_sample=True)
