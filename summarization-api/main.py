@@ -48,8 +48,11 @@ async def summarize(body: RequestBodyModel):
     # Move inputs to the device
     inputs = inputs.to(device)
 
-    # Generate output. 75-100 Tokens is around 5 sentences.
-    outputs = model.generate(inputs, max_length=100, temperature=0.7, top_p=1.0, do_sample=True)
+    # Calculate the maximum length for the generate method
+    max_length = max(100, inputs.shape[1] + 50)
+
+    # Generate output. We want around 50 tokens of output.
+    outputs = model.generate(inputs, max_length=max_length, temperature=0.7, top_p=1.0, do_sample=True)
 
     # Remove the leading pad token from the generated output, if it exists
     if outputs[0, 0] == tokenizer.pad_token_id:
