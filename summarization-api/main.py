@@ -51,8 +51,9 @@ async def summarize(body: RequestBodyModel):
     # Generate output. 75-100 Tokens is around 5 sentences.
     outputs = model.generate(inputs, max_length=100, temperature=0.7, top_p=1.0, do_sample=True)
 
-    # Remove all pad tokens from the generated output
-    outputs = outputs[outputs != tokenizer.pad_token_id]
+    # Remove the leading pad token from the generated output, if it exists
+    if outputs[0, 0] == tokenizer.pad_token_id:
+        outputs = outputs[:, 1:]
 
     # Decode the output
     summary = tokenizer.decode(outputs[0], skip_special_tokens=True)
