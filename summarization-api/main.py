@@ -39,6 +39,8 @@ model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 # Move model to the device
 model = model.to(device)
 
+# TODO: Recursive summarization for prompts that exceed maximum length supported by 24GB GPU RAM.
+# TODO: Implement Task Queues using Celery
 
 @app.post("/summarize/", dependencies=[Depends(get_api_key)])
 async def summarize(body: RequestBodyModel):
@@ -48,19 +50,17 @@ async def summarize(body: RequestBodyModel):
     # Move inputs to the device
     inputs = inputs.to(device)
 
-    # Calculate the maximum length for the generate method
-    max_length = inputs.shape[1] + 100
+    # Calculate the maximum length for the generate method. Constraint: input_length + generation length <= 2048 tokens
+    if inputs.shape[1] > 1500:
+        inputs = inputs[:, :1500]
 
-    # Generate output. We want around 50 tokens of output.
-    outputs = model.generate(inputs, max_length=max_length, temperature=0.7, top_p=1.0, do_sample=True)
-
-    # Remove the leading pad token from the generated output, if it exists
-    if outputs[0, 0] == tokenizer.pad_token_id:
-        outputs = outputs[:, 1:]
+    # Generate output. 500 Tokens is 20 sentences.
+    outputs = model.generate(inputs, max_length=500, temperature=0.7, top_p=1.0, do_sample=True)
 
     # Decode the output
     summary = tokenizer.decode(outputs[0], skip_special_tokens=True)
     summary = summary.replace("  ", " ")
+    summary = summary.replace("<pad> ", "")  # Remove leading pad token
 
     return {"summary": summary}
 
