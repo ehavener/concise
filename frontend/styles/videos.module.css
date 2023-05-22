@@ -1,0 +1,20 @@
+.container {
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    padding: 16px;
+}
+
+.navbar {
+    display: flex;
+    justify-content: space-between;
+}
+
+.videoListContainer {
+
+}
+
+.videoListItem {
+    margin-bottom: 16px;
+    margin-top: 16px;
+}

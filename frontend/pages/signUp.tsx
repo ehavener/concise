@@ -27,7 +27,7 @@ export default class SignUp extends Component<any, any>{
     }
 
     handleSubmit(event: any) {
-        const url: string  = "http://127.0.0.1:8080/api/v1/users/sign-up"
+        const url: string  = "http://127.0.0.1:8080/users/sign-up"
         fetch(url, {
             method: "POST",
             mode: "cors",
@@ -41,8 +41,9 @@ export default class SignUp extends Component<any, any>{
         })
             .then((response) => response.json())
             .then(data => {
-                this.setState({ ...this.state, bearer: data['access_token'] })
-                localStorage.setItem("ot_access_token", data['access_token']);
+                // TODO: Enable redirect routing
+                // this.setState({ ...this.state, bearer: data['access_token'] })
+                // localStorage.setItem("ot_access_token", data['access_token']);
                 // window.location.replace(`${window.location.origin}/`);
             })
 

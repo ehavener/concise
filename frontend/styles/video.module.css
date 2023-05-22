@@ -1,0 +1,25 @@
+.container {
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    padding: 16px;
+}
+
+.navbar {
+    display: flex;
+    justify-content: space-between;
+}
+
+.fullSummary {
+    margin-top: 16px;
+    margin-bottom: 16px;
+}
+
+.chapterContainer {
+    margin-bottom: 16px;
+    margin-top: 16px;
+}
+
+.videoStartTimeLink:hover {
+    text-decoration: underline;
+}

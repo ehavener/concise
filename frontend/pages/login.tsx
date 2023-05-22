@@ -27,7 +27,7 @@ export default class Login extends Component<any, any> {
     }
 
     handleSubmit(event: any) {
-        const url = "http://127.0.0.1:8080/api/v1/users/login"
+        const url = "http://127.0.0.1:8080/authenticate"
         fetch(url, {
             method: "POST",
             mode: "cors",
@@ -35,15 +35,15 @@ export default class Login extends Component<any, any> {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                email: this.state.email,
+                login: this.state.email,
                 password: this.state.password
             })
         })
             .then((response) => response.json())
             .then(data => {
-                this.setState({ ...this.state, bearer: data['access_token'] })
-                localStorage.setItem("ot_access_token", data['access_token']);
-                // window.location.replace(`${window.location.origin}/`);
+                this.setState({ ...this.state, bearer: data['accessToken'] })
+                localStorage.setItem("concise_access_token", data['accessToken']);
+                window.location.replace(`${window.location.origin}/videos`);
             })
 
         event.preventDefault();
