@@ -47,12 +47,12 @@ async def summarize(body: RequestBodyModel):
     # Encode input text
     inputs = tokenizer.encode(body.text, return_tensors="pt")
 
-    # Move inputs to the device
-    inputs = inputs.to(device)
-
     # Calculate the maximum length for the generate method. Constraint: input_length + generation length <= 2048 tokens
     if inputs.shape[1] > 1500:
         inputs = inputs[:, :1500]
+
+    # Move inputs to the device
+    inputs = inputs.to(device)
 
     # Generate output. 500 Tokens is 20 sentences.
     outputs = model.generate(inputs, max_length=500, temperature=0.7, top_p=1.0, do_sample=True)
