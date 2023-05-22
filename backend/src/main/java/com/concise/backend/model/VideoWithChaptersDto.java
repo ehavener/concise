@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,6 +16,7 @@ import java.util.List;
 @NoArgsConstructor
 public class VideoWithChaptersDto implements Serializable {
     private Long id;
+    private LocalDateTime createdAt;
     private String language;
     private String summary;
     private String title;
@@ -23,6 +25,7 @@ public class VideoWithChaptersDto implements Serializable {
 
     public VideoWithChaptersDto(VideoEntity video, List<ChapterEntity> chapters) {
         this.id = video.getId();
+        this.createdAt = video.getCreatedAt();
         this.language = video.getLanguage();
         this.summary = video.getSummary();
         this.title = video.getTitle();

@@ -17,6 +17,9 @@ public class ChapterEntity {
     @Column(name="transcript")
     private String transcript;
 
+    @Column(name="start_time_seconds")
+    private Integer startTimeSeconds;
+
     @Column(name="summary")
     private String summary;
 
@@ -55,6 +58,14 @@ public class ChapterEntity {
 
     public void setSummary(String summary) {
         this.summary = summary;
+    }
+
+    public int getStartTimeSeconds() {
+        return startTimeSeconds;
+    }
+
+    public void setStartTimeSeconds(int startTimeSeconds) {
+        this.startTimeSeconds = startTimeSeconds;
     }
 
     public VideoEntity getVideo() {

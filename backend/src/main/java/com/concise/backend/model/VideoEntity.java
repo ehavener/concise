@@ -1,8 +1,10 @@
 package com.concise.backend.model;
 
+import org.hibernate.annotations.CreationTimestamp;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import java.util.List;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "videos")
@@ -11,6 +13,10 @@ public class VideoEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "video_id")
     private Long id;
+
+    @CreationTimestamp
+    @Column(updatable = false)
+    private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "video")
     private List<ChapterEntity> chapters;
@@ -41,6 +47,14 @@ public class VideoEntity {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 
     public String getTitle() {

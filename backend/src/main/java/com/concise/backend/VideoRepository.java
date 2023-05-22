@@ -8,6 +8,6 @@ import java.util.List;
 
 public interface VideoRepository extends JpaRepository<VideoEntity, Integer> {
     List<VideoEntity> findAllByYoutubeIdAndLanguageAndUserId(String youtubeId, String language, long userId);
-    List<VideoEntity> findAllByUserId(Long userId);
+    List<VideoEntity> findAllByUserIdOrderByIdDesc(Long userId);
     Optional<VideoEntity> findByIdAndUserId(Long id, Long userId);
 }

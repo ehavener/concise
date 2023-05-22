@@ -46,7 +46,7 @@ public class VideoServiceImpl {
     private String summarizationApiKey;
 
     public List<VideoWithChaptersDto> getAllVideosWithChaptersByUserId(Long userId) {
-        return videoRepository.findAllByUserId(userId).stream()
+        return videoRepository.findAllByUserIdOrderByIdDesc(userId).stream()
                 .map(video -> new VideoWithChaptersDto(video, chapterService.getChaptersByVideoId(video.getId())))
                 .toList();
     }
@@ -93,6 +93,8 @@ public class VideoServiceImpl {
         // Need to map each TranscriptEntry to a chapter
         List<ChapterTranscript> chapterTranscripts = createChapterTranscripts(chapters, transcriptContainer);
 
+        // TODO: Implement recursive summarization
+        // TODO: Return summaries as separate requests using Celery tasks
         for (int i = 0; i < chapterTranscripts.size(); i++) {
             String summary = getSummary(chapterTranscripts.get(i).getTranscript());
             chapterTranscripts.get(i).setSummary(summary);
@@ -129,7 +131,10 @@ public class VideoServiceImpl {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-API-Key", summarizationApiKey);
         Map<String, String> map = new HashMap<>();
-        map.put("text", transcript);
+        String prompt = """
+        Summarize the following video transcript text into 5-10 sentence paragraph.
+        """ + transcript;
+        map.put("text", prompt);
         ObjectMapper objectMapper = new ObjectMapper();
         String json = objectMapper.writeValueAsString(map);
         HttpEntity<String> entity = new HttpEntity<>(json, headers);
@@ -171,6 +176,7 @@ public class VideoServiceImpl {
             chapterEntity.setTitle(chapters.get(i).getTitle());
             chapterEntity.setTranscript(chapterTranscripts.get(i).getTranscript());
             chapterEntity.setSummary(chapterTranscripts.get(i).getSummary());
+            chapterEntity.setStartTimeSeconds(chapters.get(i).getStartTimeSeconds());
             chapterEntity.setVideo(createdVideo);
             createdChapters.add(chapterService.addChapter(chapterEntity));
         }
