@@ -34,6 +34,11 @@ function formatSecondsToHHMMSS(seconds: number) {
 }
 
 class Video extends Component<VideoProps, MyComponentState> {
+    static async getInitialProps({ query }: any) {
+        const { youtubeId, language, videoId } = query;
+        return { youtubeId, language, videoId };
+    }
+
     constructor(props: any) {
         super(props);
         this.state = {

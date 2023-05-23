@@ -12,10 +12,11 @@ export default class Videos extends Component<any, any> {
     constructor(props: any) {
         super(props);
         this.state = {
+            isGenerating: false,
             videos: []
         };
 
-        this.handleDebugClick = this.handleDebugClick.bind(this);
+        this.handleGenerateClick = this.handleGenerateClick.bind(this);
     }
 
     componentDidMount() {
@@ -44,9 +45,14 @@ export default class Videos extends Component<any, any> {
         }
     }
 
-    async handleDebugClick() {
+    async handleGenerateClick() {
+        this.setState({
+            isGenerating: true
+        })
+
         const token = localStorage.getItem('concise_access_token');
 
+        console.time("Create Summary Request Time");
         const response = await fetch(`http://localhost:8080/videos/create`, {
             method: 'POST',
             headers: {
@@ -54,13 +60,19 @@ export default class Videos extends Component<any, any> {
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                youtubeId: "TO0WUTq5zYI"
+                youtubeId: "XcvhERcZpWw" //
+                // youtubeId: "TO0WUTq5zYI" // Q&A
             })
         });
 
         if (response.ok) {
             const data = await response.json();
+            this.setState({
+                isGenerating: false
+            })
             console.log(data);
+            console.timeEnd("Create Summary Request Time");
+            // window.location.replace(`${window.location.origin}/video?videoId=` + data.id);
         } else {
             console.log(`Error fetching data: ${response.status} ${response.statusText}`);
         }
@@ -71,7 +83,7 @@ export default class Videos extends Component<any, any> {
             <div className={styles.container}>
                 <div className={styles.navbar}>
                     <p>History</p>
-                    <button onClick={this.handleDebugClick}>Generate (debug)</button>
+                    <button onClick={this.handleGenerateClick} disabled={this.state.isGenerating}>Generate Summary</button>
                     <p>Select Language (en)</p>
                 </div>
                 <div className={styles.videoListContainer}>
