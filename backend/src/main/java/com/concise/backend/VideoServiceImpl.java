@@ -3,7 +3,6 @@ package com.concise.backend;
 import com.concise.backend.model.*;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
@@ -12,14 +11,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
@@ -44,6 +46,12 @@ public class VideoServiceImpl {
 
     @Value("${summarization.api.key}")
     private String summarizationApiKey;
+
+    private final WebClient webClient;
+
+    public VideoServiceImpl(WebClient webClient) {
+        this.webClient = webClient;
+    }
 
     public List<VideoWithChaptersDto> getAllVideosWithChaptersByUserId(Long userId) {
         return videoRepository.findAllByUserIdOrderByIdDesc(userId).stream()
@@ -73,42 +81,73 @@ public class VideoServiceImpl {
     }
 
     public VideoWithChaptersDto createVideoFromYoutubeId(CreateVideoDto createVideoDto, UserEntity user) throws GeneralSecurityException, IOException {
-        // get chapters with YouTubeChapterExtractorService.getVideoTimelineById
+        // Get chapter names and timestamps with from YouTube Data API using YouTubeChapterExtractorService.getVideoTimelineById
         Map.Entry<String, List<YouTubeChapterExtractorService.Chapter>> videoInfo = YouTubeChapterExtractorService.getVideoTimelineById(createVideoDto.getYoutubeId());
         String videoTitle = videoInfo.getKey();
         List<YouTubeChapterExtractorService.Chapter> chapters = videoInfo.getValue();
 
-        // get transcript with HTTP request to youtube-transcript-api microservice
+        // Get transcript with HTTP request to youtube-transcript-api microservice
         String jsonString = getTranscript(createVideoDto.getYoutubeId(), user.getLanguage());
 
         // Transcript is a string of JSON in format {"language": "en", "transcript":[ {"text":"- Welcome to the Huberman Lab Podcast,","start":0.36,"duration":1.56} ]}
-        // Parse the JSON transcript to a java file
+        // Parse the JSON transcript to a java class
         TranscriptContainer transcriptContainer = readTranscriptFromJson(jsonString);
 
+        // Parse the java transcript class to a string
         String fullTranscript = transcriptContainer.getTranscript().stream()
                 .map(TranscriptEntry::getText)  // Get the text property of each TranscriptEntry
                 .collect(Collectors.joining(" "))
                 .replaceAll("\\r?\\n|\\r", " ");
 
-        // Need to map each TranscriptEntry to a chapter
+        // Get summary of full transcript with HTTP request to summarization-api microservice
+        String fullSummary = getSummaryAsync(fullTranscript).block();
+
+        // Store video in database
+        VideoEntity videoEntity = new VideoEntity();
+        videoEntity.setYoutubeId(createVideoDto.getYoutubeId());
+        videoEntity.setTitle(videoTitle);
+        videoEntity.setTranscript(fullTranscript);
+        videoEntity.setSummary(fullSummary);
+        videoEntity.setLanguage("en");
+        videoEntity.setUser(userRepository.findById(user.getId()).get());
+        VideoEntity createdVideo = addVideo(videoEntity);
+
+        // TODO: Application may hang when chapters=[]; application only fetches chapters that are defined in a description (youtube now auto-generates chapters from video)
+        // TODO: ...need to test this with a video that has no chapters
+        // Map Transcript object to chapters using chapters from YouTube Data API and transcript from youtube-transcript-api microservice
         List<ChapterTranscript> chapterTranscripts = createChapterTranscripts(chapters, transcriptContainer);
 
-        // TODO: Implement recursive summarization
-        // TODO: Return summaries as separate requests using Celery tasks
+        // Get summaries of chapter transcripts with HTTP requests to summarization-api microservice. Note: performing this synchronously takes 2.5 minutes for a 1 hr video with 16 chapters.
+        // Async brings the time down to 1.5 minutes, but still too slow. Maybe try a card with more FLOPS?
+        List<Mono<String>> summaries = new ArrayList<>();
         for (int i = 0; i < chapterTranscripts.size(); i++) {
-            String summary = getSummary(chapterTranscripts.get(i).getTranscript());
-            chapterTranscripts.get(i).setSummary(summary);
+            summaries.add(getSummaryAsync(chapterTranscripts.get(i).getTranscript()));
         }
+        Flux.fromIterable(summaries)
+                .flatMap(Function.identity())
+                .collectList()
+                .doOnNext(collectedSummaries -> {
+                    for (int i = 0; i < collectedSummaries.size(); i++) {
+                        chapterTranscripts.get(i).setSummary(collectedSummaries.get(i));
+                    }
+                })
+                .block();
 
-        String fullSummary = getSummary(fullTranscript);
 
         // TODO: Translate summaries if necessary with HTTP request to NLLB translation-api microservice
 
-        // Return video with chapters
-        VideoWithChaptersDto createdVideoWithChaptersDto = storeVideoAndChapters(
-                createVideoDto.getYoutubeId(),
-                videoTitle, fullTranscript, fullSummary,
-                "en", user.getId(), chapters, chapterTranscripts);
+        // Store chapters in database
+        List<ChapterEntity> createdChapters = new ArrayList<>();
+        for (int i = 0; i < chapters.size(); i++) {
+            ChapterEntity chapterEntity = new ChapterEntity();
+            chapterEntity.setTitle(chapters.get(i).getTitle());
+            chapterEntity.setTranscript(chapterTranscripts.get(i).getTranscript());
+            chapterEntity.setSummary(chapterTranscripts.get(i).getSummary());
+            chapterEntity.setStartTimeSeconds(chapters.get(i).getStartTimeSeconds());
+            chapterEntity.setVideo(createdVideo);
+            createdChapters.add(chapterService.addChapter(chapterEntity));
+        }
+        VideoWithChaptersDto createdVideoWithChaptersDto = new VideoWithChaptersDto(createdVideo, createdChapters);
 
         return createdVideoWithChaptersDto;
     }
@@ -124,27 +163,17 @@ public class VideoServiceImpl {
         return responseObject;
     }
 
-    public String getSummary(String transcript) throws JsonProcessingException {
-        RestTemplate restTemplate = new RestTemplate();
-        String url = summarizationApiUrl;
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-API-Key", summarizationApiKey);
-        Map<String, String> map = new HashMap<>();
-        String prompt = """
-        Summarize the following video transcript text into 5-10 sentence paragraph.
-        """ + transcript;
-        map.put("text", prompt);
-        ObjectMapper objectMapper = new ObjectMapper();
-        String json = objectMapper.writeValueAsString(map);
-        HttpEntity<String> entity = new HttpEntity<>(json, headers);
-        System.out.println("url" + url);
-        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
-        String responseBody = response.getBody();
-        ObjectMapper responseObjectMapper = new ObjectMapper();
-        JsonNode jsonNode = responseObjectMapper.readTree(responseBody);
-        String summary = jsonNode.get("summary").asText();
-        return summary;
+    public Mono<String> getSummaryAsync(String transcript) {
+        String prompt = "Summarize the following video transcript text into a 5-10 sentence paragraph.\n\n" + transcript;
+
+        return webClient.post()
+                .uri(summarizationApiUrl)
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .header("X-API-Key", summarizationApiKey)
+                .bodyValue(Map.of("text", prompt))
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .map(jsonNode -> jsonNode.get("summary").asText());
     }
 
     public static TranscriptContainer readTranscriptFromJson(String jsonString) {
@@ -156,31 +185,6 @@ public class VideoServiceImpl {
             e.printStackTrace();
         }
         return transcriptContainer;
-    }
-
-    public VideoWithChaptersDto storeVideoAndChapters(String youtubeId, String videoTitle, String fullTranscript, String fullSummary, String language, long userId, List<YouTubeChapterExtractorService.Chapter> chapters, List<ChapterTranscript> chapterTranscripts) {
-        // Store video in database
-        VideoEntity videoEntity = new VideoEntity();
-        videoEntity.setYoutubeId(youtubeId);
-        videoEntity.setTitle(videoTitle);
-        videoEntity.setTranscript(fullTranscript);
-        videoEntity.setSummary(fullSummary);
-        videoEntity.setLanguage(language);
-        videoEntity.setUser(userRepository.findById(userId).get());
-        VideoEntity createdVideo = addVideo(videoEntity);
-
-        // Store chapters in database
-        List<ChapterEntity> createdChapters = new ArrayList<>();
-        for (int i = 0; i < chapters.size(); i++) {
-            ChapterEntity chapterEntity = new ChapterEntity();
-            chapterEntity.setTitle(chapters.get(i).getTitle());
-            chapterEntity.setTranscript(chapterTranscripts.get(i).getTranscript());
-            chapterEntity.setSummary(chapterTranscripts.get(i).getSummary());
-            chapterEntity.setStartTimeSeconds(chapters.get(i).getStartTimeSeconds());
-            chapterEntity.setVideo(createdVideo);
-            createdChapters.add(chapterService.addChapter(chapterEntity));
-        }
-        return new VideoWithChaptersDto(createdVideo, createdChapters);
     }
 
     public static class TranscriptContainer {
