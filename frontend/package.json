@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@primer/octicons-react": "^19.1.0",
+    "@primer/react-brand": "^0.18.0",
     "@types/node": "18.16.0",
     "@types/react": "18.0.38",
     "@types/react-dom": "18.0.11",

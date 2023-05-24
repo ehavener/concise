@@ -5,9 +5,35 @@
     padding: 16px;
 }
 
-.navbar {
+.generate {
     display: flex;
-    justify-content: space-between;
+    flex-direction: row;
+    margin-right: 32px;
+    margin-left: 32px;
+    margin-bottom: 24px;
+}
+
+.generateImage {
+    margin: 32px 32px 32px 0px;
+    box-shadow: var(--brand-River-visual-shadow);
+}
+
+.generateDescription {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: start;
+}
+
+.generateDescriptionInputs {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: row;
+}
+
+.generateDescriptionInputs > :first-child {
+    max-width: 160px;
+    margin-right: 16px;
 }
 
 .videoListContainer {
@@ -15,6 +41,23 @@
 }
 
 .videoListItem {
-    margin-bottom: 16px;
-    margin-top: 16px;
+    margin-bottom: 40px;
+    margin-top: 32px;
+}
+
+.videoListItemTitle {
+    margin-bottom: 8px;
+}
+
+.videoListItemImage {
+    height: 40px;
+    border-radius: 2px;
+}
+
+.videoListItemLink {
+    margin-left: 16px;
+}
+
+.videoListItemLink > :first-child {
+    font-family: system-ui !important;
 }

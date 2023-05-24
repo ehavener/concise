@@ -3,6 +3,8 @@ import {Component} from "react";
 import { withRouter, NextRouter } from 'next/router';
 import { WithRouterProps } from 'next/dist/client/with-router';
 import Link from "next/link";
+import {Button} from '@primer/react-brand'
+import { ChevronLeftIcon } from '@primer/octicons-react';
 
 interface VideoProps extends WithRouterProps {
     router: NextRouter;
@@ -138,7 +140,7 @@ class Video extends Component<VideoProps, MyComponentState> {
             <div className={styles.container}>
                 <div className={styles.navbar}>
                     <Link href={`/videos`}>
-                        <p>Back</p>
+                        <Button variant="subtle" hasArrow={false}><ChevronLeftIcon /> Back</Button>
                     </Link>
                 </div>
                 <div className={styles.fullSummary}>

@@ -1,4 +1,7 @@
 import '@/styles/globals.css'
+import '@primer/react-brand/lib/css/main.css'
+import '@primer/react-brand/fonts/fonts.css'
+
 import type { AppProps } from 'next/app'
 import {useEffect} from "react";
 import {useRouter} from "next/router";
