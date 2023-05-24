@@ -17,8 +17,8 @@ import java.util.List;
 public class VideoWithChaptersDto implements Serializable {
     private Long id;
     private LocalDateTime createdAt;
-    private String language;
     private String summary;
+    private String summaryLanguage;
     private String thumbnailUrl;
     private String title;
     private String transcript;
@@ -27,8 +27,8 @@ public class VideoWithChaptersDto implements Serializable {
     public VideoWithChaptersDto(VideoEntity video, List<ChapterEntity> chapters) {
         this.id = video.getId();
         this.createdAt = video.getCreatedAt();
-        this.language = video.getLanguage();
         this.summary = video.getSummary();
+        this.summaryLanguage = video.getSummaryLanguage();
         this.thumbnailUrl = video.getThumbnailUrl();
         this.title = video.getTitle();
         this.transcript = video.getTranscript();

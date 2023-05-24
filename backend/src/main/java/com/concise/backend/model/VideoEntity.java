@@ -33,8 +33,8 @@ public class VideoEntity {
     @Column(name="summary")
     private String summary;
 
-    @Column(name="language")
-    private String language;
+    @Column(name="summary_language")
+    private String summaryLanguage;
 
     @Column(name="youtube_id")
     private String youtubeId;
@@ -92,12 +92,12 @@ public class VideoEntity {
         this.summary = summary;
     }
 
-    public String getLanguage() {
-        return language;
+    public String getSummaryLanguage() {
+        return summaryLanguage;
     }
 
-    public void setLanguage(String language) {
-        this.language = language;
+    public void setSummaryLanguage(String summaryLanguage) {
+        this.summaryLanguage = summaryLanguage;
     }
 
     public String getYoutubeId() {

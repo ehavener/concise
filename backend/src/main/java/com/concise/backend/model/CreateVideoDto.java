@@ -10,5 +10,6 @@ import java.io.Serializable;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CreateVideoDto implements Serializable {
+    private String summaryLanguage;
     private String youtubeId;
 }

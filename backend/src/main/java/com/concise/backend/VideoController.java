@@ -36,7 +36,7 @@ public class VideoController {
     @GetMapping(path="/search", produces = "application/json")
     public @ResponseBody List<VideoWithChaptersDto> getAllVideosByYoutubeIdAndLanguage(@RequestParam String youtubeId, @RequestParam String language) {
         Long userId = getAuthenticatedUserId();
-        return videoService.getAllVideosWithChaptersByYoutubeIdAndLanguageAndUserId(youtubeId, language, userId);
+        return videoService.getAllVideosWithChaptersByYoutubeIdAndSummaryLanguageAndUserId(youtubeId, language, userId);
     }
 
     @PostMapping(path="/create", consumes = "application/json", produces = "application/json")

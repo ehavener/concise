@@ -17,7 +17,7 @@ public class ChapterServiceImpl {
         return chapterRepository.saveAndFlush(chapter);
     }
 
-    public List<ChapterEntity> getChaptersByVideoId(Long videoId) {
-        return chapterRepository.findByVideoId(videoId);
+    public List<ChapterEntity> getChaptersByVideoIdOrderByStartTimeSecondsAsc(Long videoId) {
+        return chapterRepository.findByVideoIdOrderByStartTimeSecondsAsc(videoId);
     }
 }

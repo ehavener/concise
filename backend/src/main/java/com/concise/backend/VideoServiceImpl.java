@@ -56,7 +56,7 @@ public class VideoServiceImpl {
 
     public List<VideoWithChaptersDto> getAllVideosWithChaptersByUserId(Long userId) {
         return videoRepository.findAllByUserIdOrderByIdDesc(userId).stream()
-                .map(video -> new VideoWithChaptersDto(video, chapterService.getChaptersByVideoId(video.getId())))
+                .map(video -> new VideoWithChaptersDto(video, chapterService.getChaptersByVideoIdOrderByStartTimeSecondsAsc(video.getId())))
                 .toList();
     }
 
@@ -64,15 +64,15 @@ public class VideoServiceImpl {
         Optional<VideoEntity> videoOptional = videoRepository.findByIdAndUserId(id, userId);
         if (videoOptional.isPresent()) {
             VideoEntity videoEntity = videoOptional.get();
-            VideoWithChaptersDto videoWithChaptersDto = new VideoWithChaptersDto(videoEntity, chapterService.getChaptersByVideoId(videoEntity.getId()));
+            VideoWithChaptersDto videoWithChaptersDto = new VideoWithChaptersDto(videoEntity, chapterService.getChaptersByVideoIdOrderByStartTimeSecondsAsc(videoEntity.getId()));
             return Optional.of(videoWithChaptersDto);
         }
         return Optional.empty();
     }
 
-    public List<VideoWithChaptersDto> getAllVideosWithChaptersByYoutubeIdAndLanguageAndUserId(String youtubeId, String language, long userId) {
-        return videoRepository.findAllByYoutubeIdAndLanguageAndUserId(youtubeId, language, userId).stream()
-                .map(video -> new VideoWithChaptersDto(video, chapterService.getChaptersByVideoId(video.getId())))
+    public List<VideoWithChaptersDto> getAllVideosWithChaptersByYoutubeIdAndSummaryLanguageAndUserId(String youtubeId, String language, long userId) {
+        return videoRepository.findAllByYoutubeIdAndSummaryLanguageAndUserId(youtubeId, language, userId).stream()
+                .map(video -> new VideoWithChaptersDto(video, chapterService.getChaptersByVideoIdOrderByStartTimeSecondsAsc(video.getId())))
                 .toList();
     }
 
@@ -88,6 +88,8 @@ public class VideoServiceImpl {
         return new VideoPreviewDto(videoTitle, thumbnailDetails.getHigh().getUrl());
     }
 
+    // TODO: What happens if a video has no captions available?
+    // TODO: Refactor this method to return summaries as they are completed, instead of waiting for all to finish
     public VideoWithChaptersDto createVideoFromYoutubeId(CreateVideoDto createVideoDto, UserEntity user) throws GeneralSecurityException, IOException {
         // Get chapter names and timestamps with from YouTube Data API using YouTubeChapterExtractorService.getVideoTimelineById
         YouTubeChapterExtractorService.VideoData videoData = YouTubeChapterExtractorService.getVideoTimelineById(createVideoDto.getYoutubeId());
@@ -109,6 +111,7 @@ public class VideoServiceImpl {
                 .replaceAll("\\r?\\n|\\r", " ");
 
         // Get summary of full transcript with HTTP request to summarization-api microservice
+        // TODO: fullSummary should be the concatenation of all 2-4 sentence summaries per each 10 minutes of video
         String fullSummary = getSummaryAsync(fullTranscript).block();
 
         // Store video in database
@@ -118,7 +121,7 @@ public class VideoServiceImpl {
         videoEntity.setTitle(videoTitle);
         videoEntity.setTranscript(fullTranscript);
         videoEntity.setSummary(fullSummary);
-        videoEntity.setLanguage("en");
+        videoEntity.setSummaryLanguage(createVideoDto.getSummaryLanguage());
         videoEntity.setUser(userRepository.findById(user.getId()).get());
         VideoEntity createdVideo = addVideo(videoEntity);
 
@@ -310,6 +313,7 @@ public class VideoServiceImpl {
                 TranscriptEntry transcriptEntry = transcriptEntries.get(j);
                 double transcriptEntryStartTimeSeconds = transcriptEntry.getStart();
                 double transcriptEntryEndTimeSeconds = transcriptEntry.getEndTimeSeconds();
+                // TODO: Inspect how well this works in practice by comparing the transcript to the video and summary outputs
                 // This will ignore transcript entries that start in one chapter and end in the following chapter
                 // (i.e. the final transcript entry of each chapter)
                 // This should be improved.
