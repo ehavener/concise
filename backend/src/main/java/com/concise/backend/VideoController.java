@@ -45,6 +45,12 @@ public class VideoController {
         return videoService.createVideoFromYoutubeId(createVideoDto, userRepository.getById(userId));
     }
 
+    @GetMapping(path="/preview/{youtubeId}", produces = "application/json")
+    public @ResponseBody VideoPreviewDto getVideoPreview(@PathVariable String youtubeId) throws GeneralSecurityException, IOException {
+        getAuthenticatedUserId();
+        return videoService.getVideoPreviewByYoutubeId(youtubeId);
+    }
+
     public Long getAuthenticatedUserId() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 

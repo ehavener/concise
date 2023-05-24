@@ -21,6 +21,9 @@ public class VideoEntity {
     @OneToMany(mappedBy = "video")
     private List<ChapterEntity> chapters;
 
+    @Column(name="thumbnail_url")
+    private String thumbnailUrl;
+
     @Column(name="title")
     private String title;
 
@@ -55,6 +58,14 @@ public class VideoEntity {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getThumbnailUrl() {
+        return thumbnailUrl;
+    }
+
+    public void setThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
     }
 
     public String getTitle() {

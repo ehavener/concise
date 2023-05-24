@@ -19,6 +19,7 @@ public class VideoWithChaptersDto implements Serializable {
     private LocalDateTime createdAt;
     private String language;
     private String summary;
+    private String thumbnailUrl;
     private String title;
     private String transcript;
     private List<ChapterDto> chapterDtos;
@@ -28,6 +29,7 @@ public class VideoWithChaptersDto implements Serializable {
         this.createdAt = video.getCreatedAt();
         this.language = video.getLanguage();
         this.summary = video.getSummary();
+        this.thumbnailUrl = video.getThumbnailUrl();
         this.title = video.getTitle();
         this.transcript = video.getTranscript();
 

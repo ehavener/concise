@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.api.services.youtube.model.ThumbnailDetails;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -80,11 +81,19 @@ public class VideoServiceImpl {
         return videoRepository.saveAndFlush(video);
     }
 
+    public VideoPreviewDto getVideoPreviewByYoutubeId(String youtubeId) throws GeneralSecurityException, IOException {
+        YouTubeChapterExtractorService.VideoData videoData = YouTubeChapterExtractorService.getVideoTimelineById(youtubeId);
+        String videoTitle = videoData.getVideoTitle();
+        ThumbnailDetails thumbnailDetails = videoData.getThumbnails();
+        return new VideoPreviewDto(videoTitle, thumbnailDetails.getHigh().getUrl());
+    }
+
     public VideoWithChaptersDto createVideoFromYoutubeId(CreateVideoDto createVideoDto, UserEntity user) throws GeneralSecurityException, IOException {
         // Get chapter names and timestamps with from YouTube Data API using YouTubeChapterExtractorService.getVideoTimelineById
-        Map.Entry<String, List<YouTubeChapterExtractorService.Chapter>> videoInfo = YouTubeChapterExtractorService.getVideoTimelineById(createVideoDto.getYoutubeId());
-        String videoTitle = videoInfo.getKey();
-        List<YouTubeChapterExtractorService.Chapter> chapters = videoInfo.getValue();
+        YouTubeChapterExtractorService.VideoData videoData = YouTubeChapterExtractorService.getVideoTimelineById(createVideoDto.getYoutubeId());
+        String videoTitle = videoData.getVideoTitle();
+        ThumbnailDetails thumbnailDetails = videoData.getThumbnails();
+        List<YouTubeChapterExtractorService.Chapter> chapters = videoData.getChapters();
 
         // Get transcript with HTTP request to youtube-transcript-api microservice
         String jsonString = getTranscript(createVideoDto.getYoutubeId(), user.getLanguage());
@@ -105,6 +114,7 @@ public class VideoServiceImpl {
         // Store video in database
         VideoEntity videoEntity = new VideoEntity();
         videoEntity.setYoutubeId(createVideoDto.getYoutubeId());
+        videoEntity.setThumbnailUrl(thumbnailDetails.getHigh().getUrl());
         videoEntity.setTitle(videoTitle);
         videoEntity.setTranscript(fullTranscript);
         videoEntity.setSummary(fullSummary);

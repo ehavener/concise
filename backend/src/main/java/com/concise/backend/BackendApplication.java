@@ -33,7 +33,10 @@ public class BackendApplication {
 						.allowedMethods("POST", "HEAD", "OPTIONS")
 						.allowedHeaders("*")
 						.allowCredentials(true);
-				registry.addMapping("/videos/").allowedOrigins("http://localhost:3000");
+				registry.addMapping("/videos/").allowedOrigins("http://localhost:3000")
+						.allowedMethods("GET", "HEAD", "OPTIONS")
+						.allowedHeaders("*")
+						.allowCredentials(true);
 				registry.addMapping("/videos/{id}").allowedOrigins("http://localhost:3000");
 				registry.addMapping("/videos/search").allowedOrigins("http://localhost:3000")
 						.allowedMethods("GET", "HEAD", "OPTIONS")
@@ -41,6 +44,10 @@ public class BackendApplication {
 						.allowCredentials(true);
 				registry.addMapping("/videos/create").allowedOrigins("http://localhost:3000")
 						.allowedMethods("POST", "HEAD", "OPTIONS")
+						.allowedHeaders("*")
+						.allowCredentials(true);
+				registry.addMapping("/videos/preview/{youtubeId}").allowedOrigins("http://localhost:3000")
+						.allowedMethods("GET", "HEAD", "OPTIONS")
 						.allowedHeaders("*")
 						.allowCredentials(true);
 			}
