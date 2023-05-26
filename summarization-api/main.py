@@ -4,6 +4,13 @@ import pika
 import json
 import torch
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import socket
+import fcntl
+import struct
+
+def get_default_gateway():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        return socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, struct.pack('256s', b'eth0'))[20:24])
 
 # Check if GPU is available and if not, use CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -81,7 +88,7 @@ def callback(ch, method, properties, body):
 
 
 # RabbitMQ connection
-connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+connection = pika.BlockingConnection(pika.ConnectionParameters(host=get_default_gateway()))
 
 channel = connection.channel()
 
