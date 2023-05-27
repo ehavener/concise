@@ -1,5 +1,5 @@
 # Use an official Python runtime as a parent image
-FROM python:3.8-slim-buster as builder
+FROM python:3.10 as builder
 
 # Install git
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
@@ -18,7 +18,7 @@ RUN pip install -q -U git+https://github.com/huggingface/peft.git
 RUN pip install -q -U git+https://github.com/huggingface/accelerate.git
 
 # This is the second stage where we actually run the application
-FROM python:3.8-slim-buster as runner
+FROM python:3.10 as runner
 
 # Set the working directory in the container to /app
 WORKDIR /app
