@@ -9,66 +9,70 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import os
 import uuid
 
-# Check if GPU is available and if not, use CPU
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 # Load the model and tokenizer
-model_name = "lmsys/fastchat-t5-3b-v1.0"
+model_name = "jordiclive/flan-t5-11b-summarizer-filtered"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+model = AutoModelForSeq2SeqLM.from_pretrained(model_name, load_in_4bit=True, device_map="auto")
 
-# Move model to the device
-model = model.to(device)
+target_length = 150
+max_source_length = 512
 
-# TODO: Test a model with a larger context window for better summaries of >10 minute videos. MPT | RWKV | Guanaco.
-# TODO: Improve summary quality. Improve per-token inference speed.
+example_prompts = {
+    "social": "Produce a short summary of the following social media post:",
+    "ten": "Summarize the following article in 10-20 words:",
+    "5": "Summarize the following article in 0-5 words:",
+    "100": "Summarize the following article in about 100 words:",
+    "summary": "Write a ~ 100 word summary of the following text:",
+    "short": "Provide a short summary of the following article:",
+    "video": "Produce a short summary of the following video chapter transcript:",
+}
+
+def generate(inputs, max_source_length=512, summarization_type=None, prompt=None):
+    """returns a list of zipped inputs, outputs and number of new tokens"""
+
+    if prompt is not None:
+        inputs = [f"{prompt.strip()} \n\n {i.strip()}" for i in inputs]
+    if summarization_type is not None:
+        inputs = [
+            f"{example_prompts[summarization_type].strip()} \n\n {i.strip()}"
+            for i in inputs
+        ]
+    if summarization_type is None and prompt is None:
+        inputs = [f"Summarize the following: \n\n {i.strip()}" for i in inputs]
+    input_tokens = tokenizer.batch_encode_plus(
+        inputs,
+        max_length=max_source_length,
+        padding="max_length",
+        truncation=True,
+        return_tensors="pt",
+    )
+    for t in input_tokens:
+        if torch.is_tensor(input_tokens[t]):
+            input_tokens[t] = input_tokens[t].to("cuda:0")
+
+    outputs = model.generate(
+        **input_tokens,
+        use_cache=True,
+        num_beams=5,
+        min_length=5,
+        max_new_tokens=target_length,
+        no_repeat_ngram_size=3,
+    )
+
+    input_tokens_lengths = [x.shape[0] for x in input_tokens.input_ids]
+    output_tokens_lengths = [x.shape[0] for x in outputs]
+
+    total_new_tokens = [
+        o - i for i, o in zip(input_tokens_lengths, output_tokens_lengths)
+    ]
+    outputs = tokenizer.batch_decode(outputs, skip_special_tokens=True)
+
+    return inputs, outputs, total_new_tokens
+
+
 def summarize(text):
-    # add summarization prompt to text
-    text = "Summarize the following video transcript text into a 5-10 sentence paragraph.\n\n" + text + "TL;DR: "
-
-    max_length = 1750
-
-    # Encode input text
-    tokenized_text = tokenizer.tokenize(text, return_tensors="pt")
-
-    # Ensure no sentence is cut off at the start
-    if not tokenized_text[0].isupper() and not tokenized_text[0].isdigit():
-        for i in range(len(tokenized_text)):
-            if tokenized_text[i] in {'.', '!', '?'}:
-                tokenized_text = tokenized_text[i+1:]
-                break
-
-    # Ensure no sentence is cut off at the end
-    encoded_text = []
-    sentence = []
-    for token in tokenized_text:
-        if len(encoded_text) + len(sentence) + 1 > max_length:
-            break
-        elif token in {'.', '!', '?'}:
-            sentence.append(token)
-            encoded_text.extend(sentence)
-            sentence = []
-        else:
-            sentence.append(token)
-
-    inputs_ids = tokenizer.convert_tokens_to_ids(encoded_text)
-
-    print(len(inputs_ids))
-    inputs = torch.tensor([inputs_ids])
-
-    # Move inputs to the device
-    inputs = inputs.to(device)
-
-    # Generate output. 250 Tokens is 10 sentences.
-    # TODO: Evaluate results using 8-bit precision.
-    outputs = model.generate(inputs, max_length=250, temperature=0.2, top_p=0.9, do_sample=True)
-
-    # Decode the output
-    summary = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    summary = summary.replace("  ", " ")
-    summary = summary.replace("<pad> ", "")  # Remove leading pad token
-    print("completed generation for: ", len(inputs_ids))
-    return summary
+    _, outputs, _ = generate([text], summarization_type="video")
+    return outputs[0]
 
 
 sqs = boto3.client('sqs',
@@ -127,6 +131,6 @@ try:
                 else:
                     raise  # Reraise the exception if it's not related to an expired receipt handle
         else:
-            print('No messages to process.')
+            pass
 except KeyboardInterrupt:
     print("\nInterrupted by user. Exiting...")

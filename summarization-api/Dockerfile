@@ -8,8 +8,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install pinned protobuf version
-RUN pip install protobuf==3.20.0
+# Install latest versions of bitsandbites, transformers, accelerate
+RUN pip pip install -q -U bitsandbytes
+RUN pip install -q -U git+https://github.com/huggingface/transformers.git
+RUN pip install -q -U git+https://github.com/huggingface/peft.git
+RUN pip install -q -U git+https://github.com/huggingface/accelerate.git
 
 # This is the second stage where we actually run the application
 FROM python:3.8-slim-buster as runner
