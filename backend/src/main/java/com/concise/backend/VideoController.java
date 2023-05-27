@@ -39,16 +39,16 @@ public class VideoController {
         return videoService.getAllVideosWithChaptersByYoutubeIdAndSummaryLanguageAndUserId(youtubeId, language, userId);
     }
 
-    @PostMapping(path="/create", consumes = "application/json", produces = "application/json")
-    public @ResponseBody VideoWithChaptersDto createVideo(@RequestBody CreateVideoDto createVideoDto) throws GeneralSecurityException, IOException {
-        Long userId = getAuthenticatedUserId();
-        return videoService.createVideoFromYoutubeId(createVideoDto, userRepository.getById(userId));
-    }
-
     @GetMapping(path="/preview/{youtubeId}", produces = "application/json")
     public @ResponseBody VideoPreviewDto getVideoPreview(@PathVariable String youtubeId) throws GeneralSecurityException, IOException {
         getAuthenticatedUserId();
         return videoService.getVideoPreviewByYoutubeId(youtubeId);
+    }
+
+    @PostMapping(path="/create", consumes = "application/json", produces = "application/json")
+    public @ResponseBody VideoWithChaptersDto createVideo(@RequestBody CreateVideoDto createVideoDto) throws GeneralSecurityException, IOException {
+        Long userId = getAuthenticatedUserId();
+        return videoService.createVideoFromYoutubeId(createVideoDto, userRepository.getById(userId));
     }
 
     public Long getAuthenticatedUserId() {

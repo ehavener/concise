@@ -12,8 +12,17 @@ public class ChapterServiceImpl {
     @Autowired
     private ChapterRepository chapterRepository;
 
+    public ChapterEntity getChapter(Integer id) {
+        return chapterRepository.findById(id).orElse(null);
+    }
+
     @Transactional
     public ChapterEntity addChapter(ChapterEntity chapter) {
+        return chapterRepository.saveAndFlush(chapter);
+    }
+
+    @Transactional
+    public ChapterEntity updateChapter(ChapterEntity chapter) {
         return chapterRepository.saveAndFlush(chapter);
     }
 

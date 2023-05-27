@@ -6,7 +6,7 @@ import java.util.Optional;
 
 import java.util.List;
 
-public interface VideoRepository extends JpaRepository<VideoEntity, Integer> {
+public interface VideoRepository extends JpaRepository<VideoEntity, Long> {
     List<VideoEntity> findAllByYoutubeIdAndSummaryLanguageAndUserId(String youtubeId, String language, long userId);
     List<VideoEntity> findAllByUserIdOrderByIdDesc(Long userId);
     Optional<VideoEntity> findByIdAndUserId(Long id, Long userId);

@@ -3,8 +3,8 @@ package com.concise.backend;
 import com.concise.backend.model.*;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.api.services.youtube.model.ThumbnailDetails;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,16 +13,12 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Component
@@ -36,22 +32,23 @@ public class VideoServiceImpl {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private SqsProducerService sqsProducerService;
+
     @Value("${transcript.api.url}")
     private String transcriptApiUrl;
 
     @Value("${transcript.api.key}")
     private String transcriptApiKey;
 
-    @Value("${summarization.api.url}")
-    private String summarizationApiUrl;
-
-    @Value("${summarization.api.key}")
-    private String summarizationApiKey;
-
     private final WebClient webClient;
 
     public VideoServiceImpl(WebClient webClient) {
         this.webClient = webClient;
+    }
+
+    public VideoEntity getVideo(long id) {
+        return videoRepository.findById(id).orElse(null);
     }
 
     public List<VideoWithChaptersDto> getAllVideosWithChaptersByUserId(Long userId) {
@@ -78,6 +75,11 @@ public class VideoServiceImpl {
 
     @Transactional
     public VideoEntity addVideo(VideoEntity video) {
+        return videoRepository.saveAndFlush(video);
+    }
+
+    @Transactional
+    public VideoEntity updateVideo(VideoEntity video) {
         return videoRepository.saveAndFlush(video);
     }
 
@@ -110,17 +112,12 @@ public class VideoServiceImpl {
                 .collect(Collectors.joining(" "))
                 .replaceAll("\\r?\\n|\\r", " ");
 
-        // Get summary of full transcript with HTTP request to summarization-api microservice
-        // TODO: fullSummary should be the concatenation of all 2-4 sentence summaries per each 10 minutes of video
-        String fullSummary = getSummaryAsync(fullTranscript).block();
-
         // Store video in database
         VideoEntity videoEntity = new VideoEntity();
         videoEntity.setYoutubeId(createVideoDto.getYoutubeId());
         videoEntity.setThumbnailUrl(thumbnailDetails.getHigh().getUrl());
         videoEntity.setTitle(videoTitle);
         videoEntity.setTranscript(fullTranscript);
-        videoEntity.setSummary(fullSummary);
         videoEntity.setSummaryLanguage(createVideoDto.getSummaryLanguage());
         videoEntity.setUser(userRepository.findById(user.getId()).get());
         VideoEntity createdVideo = addVideo(videoEntity);
@@ -130,37 +127,30 @@ public class VideoServiceImpl {
         // Map Transcript object to chapters using chapters from YouTube Data API and transcript from youtube-transcript-api microservice
         List<ChapterTranscript> chapterTranscripts = createChapterTranscripts(chapters, transcriptContainer);
 
-        // Get summaries of chapter transcripts with HTTP requests to summarization-api microservice. Note: performing this synchronously takes 2.5 minutes for a 1 hr video with 16 chapters.
-        // Async brings the time down to 1.5 minutes, but still too slow. Maybe try a card with more FLOPS?
-        List<Mono<String>> summaries = new ArrayList<>();
-        for (int i = 0; i < chapterTranscripts.size(); i++) {
-            summaries.add(getSummaryAsync(chapterTranscripts.get(i).getTranscript()));
-        }
-        Flux.fromIterable(summaries)
-                .flatMap(Function.identity())
-                .collectList()
-                .doOnNext(collectedSummaries -> {
-                    for (int i = 0; i < collectedSummaries.size(); i++) {
-                        chapterTranscripts.get(i).setSummary(collectedSummaries.get(i));
-                    }
-                })
-                .block();
-
-
-        // TODO: Translate summaries if necessary with HTTP request to NLLB translation-api microservice
-
         // Store chapters in database
         List<ChapterEntity> createdChapters = new ArrayList<>();
         for (int i = 0; i < chapters.size(); i++) {
             ChapterEntity chapterEntity = new ChapterEntity();
             chapterEntity.setTitle(chapters.get(i).getTitle());
             chapterEntity.setTranscript(chapterTranscripts.get(i).getTranscript());
-            chapterEntity.setSummary(chapterTranscripts.get(i).getSummary());
             chapterEntity.setStartTimeSeconds(chapters.get(i).getStartTimeSeconds());
             chapterEntity.setVideo(createdVideo);
             createdChapters.add(chapterService.addChapter(chapterEntity));
         }
         VideoWithChaptersDto createdVideoWithChaptersDto = new VideoWithChaptersDto(createdVideo, createdChapters);
+
+        // Queue generation of video and chapters with summaries.
+
+        // Get summary of full transcript with HTTP request to summarization-api microservice
+        // TODO: fullSummary should be the concatenation of all 2-4 sentence summaries per each 10 minutes of video
+        enqueueToSummarize(videoEntity.getId(), null, fullTranscript);
+
+        // Get summaries of chapter transcripts with HTTP requests to summarization-api microservice.
+        for (int i = 0; i < createdChapters.size(); i++){
+            enqueueToSummarize(videoEntity.getId(), createdChapters.get(i).getId(), chapterTranscripts.get(i).getTranscript());
+        }
+
+        // TODO: Translate summaries if necessary with HTTP request to NLLB translation-api microservice
 
         return createdVideoWithChaptersDto;
     }
@@ -176,17 +166,14 @@ public class VideoServiceImpl {
         return responseObject;
     }
 
-    public Mono<String> getSummaryAsync(String transcript) {
-        String prompt = "Summarize the following video transcript text into a 5-10 sentence paragraph.\n\n" + transcript;
-
-        return webClient.post()
-                .uri(summarizationApiUrl)
-                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .header("X-API-Key", summarizationApiKey)
-                .bodyValue(Map.of("text", prompt))
-                .retrieve()
-                .bodyToMono(JsonNode.class)
-                .map(jsonNode -> jsonNode.get("summary").asText());
+    public void enqueueToSummarize(long videoId, Integer chapterId, String transcript) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        ObjectNode objectNode = objectMapper.createObjectNode();
+        objectNode.put("videoId", videoId);
+        objectNode.put("chapterId", chapterId);
+        objectNode.put("transcript", transcript);
+        String jsonMessage = objectNode.toString();
+        sqsProducerService.sendMessageToTextToSummarizeQueue(jsonMessage, Long.toString(videoId));
     }
 
     public static TranscriptContainer readTranscriptFromJson(String jsonString) {
@@ -309,14 +296,11 @@ public class VideoServiceImpl {
             StringBuilder chapterTranscriptBuilder = new StringBuilder();
 
             for (int j = 0; j < transcriptEntries.size(); j++) {
-                // if transcript entry is within chapter time range, add to chapter transcript
                 TranscriptEntry transcriptEntry = transcriptEntries.get(j);
                 double transcriptEntryStartTimeSeconds = transcriptEntry.getStart();
                 double transcriptEntryEndTimeSeconds = transcriptEntry.getEndTimeSeconds();
-                // TODO: Inspect how well this works in practice by comparing the transcript to the video and summary outputs
-                // This will ignore transcript entries that start in one chapter and end in the following chapter
-                // (i.e. the final transcript entry of each chapter)
-                // This should be improved.
+                // This will ignore transcript segments (not sentences) that start in one chapter and end in the following chapter.
+                // This is accounted for by the summarization-api which discards incomplete sentences at the beginning and end of each chapter.
                 if (transcriptEntryStartTimeSeconds >= chapterStartTimeSeconds &&
                         transcriptEntryEndTimeSeconds <= chapterEndTimeSeconds) {
                     chapterTranscriptBuilder.append(transcriptEntry.getText().replaceAll("\\r?\\n|\\r", " ") + " ");
