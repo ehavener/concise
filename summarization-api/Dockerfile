@@ -9,7 +9,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install latest versions of bitsandbites, transformers, accelerate
-RUN pip pip install -q -U bitsandbytes
+RUN pip install -q -U bitsandbytes
 RUN pip install -q -U git+https://github.com/huggingface/transformers.git
 RUN pip install -q -U git+https://github.com/huggingface/peft.git
 RUN pip install -q -U git+https://github.com/huggingface/accelerate.git
