@@ -8,9 +8,6 @@ import torch
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import os
 import uuid
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # Check if GPU is available and if not, use CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -54,9 +51,10 @@ def summarize(text):
         else:
             sentence.append(token)
 
-    inputs = tokenizer.convert_tokens_to_ids(encoded_text)
+    inputs_ids = tokenizer.convert_tokens_to_ids(encoded_text)
 
-    print(len(inputs))
+    print(len(inputs_ids))
+    inputs = torch.tensor([inputs_ids])
 
     # Move inputs to the device
     inputs = inputs.to(device)
@@ -69,7 +67,7 @@ def summarize(text):
     summary = tokenizer.decode(outputs[0], skip_special_tokens=True)
     summary = summary.replace("  ", " ")
     summary = summary.replace("<pad> ", "")  # Remove leading pad token
-    print("completed generation for: ", len(inputs))
+    print("completed generation for: ", len(inputs_ids))
     return summary
 
 
@@ -103,8 +101,8 @@ try:
             summary = summarize(body["transcript"])
 
             output_message_body = json.dumps({
-                "videoId": message["videoId"],
-                "chapterId": message["chapterId"],
+                "videoId": body["videoId"],
+                "chapterId": body["chapterId"],
                 "summary": summary})
 
             # Enqueue a new message to Summaries.fifo
