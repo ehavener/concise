@@ -4,4 +4,6 @@ urllib3<2.0
 torch
 transformers
 sentencepiece
-pika
+boto3
+load_dotenv
+botocore

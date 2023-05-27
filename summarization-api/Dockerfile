@@ -26,11 +26,8 @@ RUN pip install uvicorn
 # Add the current directory contents into the container at /app
 COPY . .
 
-# Make port 8001 available to the world outside this container
-EXPOSE 8001
-
 # Run the command to start uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "main:app"]
 
 # docker build -t summarization-api .
 # docker run -e API_KEY=... -p 8001:8001 summarization-api

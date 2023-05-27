@@ -1,16 +1,16 @@
 from datetime import datetime
 
-import pika
+import boto3
 import json
+
+import botocore as botocore
 import torch
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-import socket
-import fcntl
-import struct
+import os
+import uuid
+from dotenv import load_dotenv
 
-def get_default_gateway():
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        return socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, struct.pack('256s', b'eth0'))[20:24])
+load_dotenv()
 
 # Check if GPU is available and if not, use CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -54,8 +54,6 @@ def summarize(text):
         else:
             sentence.append(token)
 
-    return tokenizer.convert_tokens_to_ids(encoded_text)
-
     inputs = tokenizer.convert_tokens_to_ids(encoded_text)
 
     print(len(inputs))
@@ -74,30 +72,63 @@ def summarize(text):
     print("completed generation for: ", len(inputs))
     return summary
 
-def callback(ch, method, properties, body):
-    print("Received request at ", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    print(ch, method, properties, body)
-    message = json.loads(body)
-    # print(message)
-    summary = summarize(message["transcript"])
-    json_message = json.dumps({
-        "videoId": message["videoId"],
-        "chapterId" : message["chapterId"],
-        "summary": summary})
-    channel.basic_publish(exchange='', routing_key='summarized', body=json_message)
 
+sqs = boto3.client('sqs',
+                   region_name=os.getenv('AWS_REGION'),
+                   aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+                   aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'))
+input_queue_url = 'https://sqs.us-west-1.amazonaws.com/887897278824/TextToSummarize.fifo'
+output_queue_url = 'https://sqs.us-west-1.amazonaws.com/887897278824/Summaries.fifo'
 
-# RabbitMQ connection
-connection = pika.BlockingConnection(pika.ConnectionParameters(host=get_default_gateway()))
+try:
+    while True:
+        response = sqs.receive_message(
+            QueueUrl=input_queue_url,
+            AttributeNames=['All'],
+            MaxNumberOfMessages=1,
+            MessageAttributeNames=['All'],
+            VisibilityTimeout=30,
+            WaitTimeSeconds=1
+        )
 
-channel = connection.channel()
+        if 'Messages' in response:
+            message = response['Messages'][0]
+            receipt_handle = message['ReceiptHandle']
 
-channel.queue_declare(queue='toSummarize')
+            # Print out the message body
+            # print('Received message: %s' % message['Body'])
+            print("Received at ", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            body = json.loads(message['Body'])
 
-# Tell RabbitMQ that this particular function should receive messages from our toSummarize queue
-channel.basic_consume(queue='toSummarize', on_message_callback=callback, auto_ack=True)
+            summary = summarize(body["transcript"])
 
-print('Waiting for messages. To exit press CTRL+C')
+            output_message_body = json.dumps({
+                "videoId": message["videoId"],
+                "chapterId": message["chapterId"],
+                "summary": summary})
 
-# Start a never-ending loop that waits for data and runs callbacks whenever necessary
-channel.start_consuming()
+            # Enqueue a new message to Summaries.fifo
+            sqs.send_message(
+                QueueUrl=output_queue_url,
+                MessageGroupId=str(body["videoId"]),
+                MessageDeduplicationId=str(uuid.uuid4()),
+                MessageBody=output_message_body
+            )
+            print('New message enqueued to the destination queue.')
+
+            # Delete received message from queue
+            try:
+                sqs.delete_message(
+                    QueueUrl=input_queue_url,
+                    ReceiptHandle=receipt_handle
+                )
+                print('Deleted message with receipt handle:', receipt_handle)
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == 'InvalidParameterValue' and e.response['Error']['Message'].find('The receipt handle has expired.'):
+                    print('Receipt handle expired. Skipping message deletion.')
+                else:
+                    raise  # Reraise the exception if it's not related to an expired receipt handle
+        else:
+            print('No messages to process.')
+except KeyboardInterrupt:
+    print("\nInterrupted by user. Exiting...")
