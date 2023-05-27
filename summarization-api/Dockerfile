@@ -24,7 +24,7 @@ FROM python:3.10 as runner
 WORKDIR /app
 
 # Copy the dependencies from the builder stage
-COPY --from=builder /usr/local/lib/python3.8/site-packages /usr/local/lib/python3.8/site-packages
+COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
 
 # Install Uvicorn for command line usage
 RUN pip install uvicorn
