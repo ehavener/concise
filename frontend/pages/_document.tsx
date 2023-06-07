@@ -9,6 +9,7 @@ export default function Document() {
           <body>
             <Main />
             <NextScript />
+            <p style={{'textAlign': 'center', 'padding': '32px 0 16px 0'}}>©2023 Concise Video Summarizer</p>
           </body>
         </Html>
       </ThemeProvider>

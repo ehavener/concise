@@ -50,6 +50,7 @@ export default class SignUp extends Component<any, any>{
         event.preventDefault();
     }
 
+    // TODO: styles and layout for signUp page
     render() {
         return (
             <div className={styles.container}>

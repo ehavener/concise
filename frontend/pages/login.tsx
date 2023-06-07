@@ -1,12 +1,29 @@
 import styles from "@/styles/login.module.css";
 import {Component} from "react";
+import {WithRouterProps} from "next/dist/client/with-router";
+import {NextRouter, withRouter} from "next/router";
+import {Language} from "@/pages/languages";
+import {TextInput} from '@primer/react-brand'
+import {Button} from '@primer/react-brand'
+import {Heading} from '@primer/react-brand'
 
-export default class Login extends Component<any, any> {
+interface LoginProps extends WithRouterProps {
+    router: NextRouter;
+}
+
+interface LoginState {
+    email: string,
+    password: string,
+    bearer: string
+}
+
+class Login extends Component<LoginProps, LoginState> {
     constructor(props: any) {
         super(props);
         this.state = {
             email: '',
-            password: ''
+            password: '',
+            bearer: ''
         };
 
         this.handleSubmit = this.handleSubmit.bind(this);
@@ -27,6 +44,7 @@ export default class Login extends Component<any, any> {
     }
 
     handleSubmit(event: any) {
+        const { router } = this.props;
         const url = "http://127.0.0.1:8080/authenticate"
         fetch(url, {
             method: "POST",
@@ -43,22 +61,28 @@ export default class Login extends Component<any, any> {
             .then(data => {
                 this.setState({ ...this.state, bearer: data['accessToken'] })
                 localStorage.setItem("concise_access_token", data['accessToken']);
-                window.location.replace(`${window.location.origin}/videos`);
+                router.push('/videos');
             })
 
         event.preventDefault();
     }
 
+    // TODO: styles and layout for login page
     render() {
         return (
             <div className={styles.container}>
                 <div className={styles.content}>
-                    <p style={{textAlign: "center"}}>Login</p>
-                    <input type="email" name="email" placeholder="Email" value={this.state.email} onChange={this.handleEmailChange}/>
-                    <input type="password" name="password" placeholder="Password" value={this.state.password} onChange={this.handlePasswordChange}/>
-                    <button type="button" onClick={this.handleSubmit}>Submit</button>
+                    <Heading as="h3">Login</Heading>
+                    <br/>
+                    <TextInput type="email" name="email" placeholder="Email" value={this.state.email} onChange={this.handleEmailChange}/>
+                    <br/>
+                    <TextInput type="password" name="password" placeholder="Password" value={this.state.password} onChange={this.handlePasswordChange}/>
+                    <br/>
+                    <Button type="button" onClick={this.handleSubmit}>Submit</Button>
                 </div>
             </div>
         )
     }
 }
+
+export default withRouter(Login);

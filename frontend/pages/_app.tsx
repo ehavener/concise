@@ -16,16 +16,14 @@ export default function App({ Component, pageProps }: AppProps) {
     return matches && matches[1];
   }
 
-  function authUser(videoId: string | null) {
+  function authUser(youtubeId: string | null) {
     const bearerToken = localStorage.getItem('concise_access_token');
 
     if (bearerToken) {
-      if (videoId == null) {
-        // Route user to home (history list view)
+      if (youtubeId == null) {
         router.push('/videos');
       } else {
-        // Route user to VideoDetail, fetch videoId
-        router.push('/video' + '?language=en&youtubeId=' + videoId);
+        router.push('/videos' + '?youtubeId=' + youtubeId);
       }
     } else {
       // Route user to login
@@ -42,8 +40,8 @@ export default function App({ Component, pageProps }: AppProps) {
       // Check if the message is the URL sent from the popup
       if (event.data.type === 'url') {
         // Perform any action you need with the received URL
-        const videoId = extractYouTubeVideoId(event.data.payload);
-        authUser(videoId)
+        const youtubeId = extractYouTubeVideoId(event.data.payload);
+        authUser(youtubeId)
       }
     };
 

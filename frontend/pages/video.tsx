@@ -6,19 +6,24 @@ import Link from "next/link";
 import {Button} from '@primer/react-brand'
 import { ChevronLeftIcon } from '@primer/octicons-react';
 
+import dynamic from 'next/dynamic';
+
+const LoadingDots = dynamic(
+    () => import('@/pages/LoadingDots'),
+    { ssr: false } // This line will prevent component from rendering on the server.
+);
+
 interface VideoProps extends WithRouterProps {
     router: NextRouter;
 }
 
-interface MyComponentState {
-    youtubeId: null | string;
-    language: null | 'en';
+interface VideoState {
     videoId: null | string,
     video: {
         title: string,
         summary: string,
         chapterDtos: Array<any>
-    } | null;
+    } | null,
 }
 
 function formatSecondsToHHMMSS(seconds: number) {
@@ -35,51 +40,29 @@ function formatSecondsToHHMMSS(seconds: number) {
     return timeString;
 }
 
-class Video extends Component<VideoProps, MyComponentState> {
+class Video extends Component<VideoProps, VideoState> {
     static async getInitialProps({ query }: any) {
-        const { youtubeId, language, videoId } = query;
-        return { youtubeId, language, videoId };
+        const { videoId } = query;
+        return { videoId };
     }
 
     constructor(props: any) {
         super(props);
         this.state = {
-            youtubeId: null,
-            language: null,
             videoId: null,
-            video: null
+            video: null,
         };
     }
 
-    // When the user clicks the extension icon they are redirected to this component (/video) with
-    // appropriate query parameters in the url bar (youtubeId and youtubeId). This component will
-    // send a search request to the backend and load the video if it already exists. The other case
-    // for a user landing on this page is when they click a link from their video history. In this case,
-    // have the video ID.
-
     componentDidMount() {
         const { router } = this.props;
-        const youtubeId = router.query["youtubeId"] as string; // TO0WUTq5zYI
-        const language = router.query["language"] as 'en';
         const videoId = router.query["videoId"] as string;
-
-        console.log(youtubeId, language, videoId)
-
-        if (videoId) {
-            this.setState({
-                ...this.state,
-                videoId
-            });
-            this.fetchVideoById(videoId);
-        } else {
-            // Fetch videos by youtubeId and language
-            this.setState({
-                ...this.state,
-                youtubeId,
-                language
-            });
-            this.fetchVideos(youtubeId, language);
-        }
+        this.setState({
+            ...this.state,
+            videoId
+        });
+        this.fetchVideoById(videoId);
+        this.pollUntilSummariesGenerated(videoId);
     }
 
     async fetchVideoById(videoId: string) {
@@ -95,7 +78,6 @@ class Video extends Component<VideoProps, MyComponentState> {
 
         if (response.ok) {
             const data = await response.json();
-            console.log(data);
             this.setState({
                 ...this.state,
                 video: data
@@ -105,37 +87,39 @@ class Video extends Component<VideoProps, MyComponentState> {
         }
     }
 
-    async fetchVideos(youtubeId: string, language: string) {
+    pollUntilSummariesGenerated(videoId: string) {
         const token = localStorage.getItem('concise_access_token');
 
-        const queryParams = new URLSearchParams({
-            youtubeId: youtubeId,
-            language: language
-        });
-
-        const response = await fetch(`http://localhost:8080/videos/search?${queryParams.toString()}`, {
+        fetch(`http://localhost:8080/videos/${videoId.toString()}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            console.log(data);
-            this.setState({
-                ...this.state,
-                video: data.length >= 1 ? data[0] : null
+        }).then(response => response.json())
+            .then(data => {
+                // Process the received updates
+                this.setState({
+                    ...this.state,
+                    video: data
+                })
+                // Schedule the next poll after a delay
+                const videoSummaryCreated = this.state.video?.summary;
+                const chapterSummariesCreated = this.state.video?.chapterDtos.every(c => c.summary)
+                if (!videoSummaryCreated || !chapterSummariesCreated) {
+                    setTimeout(() => {
+                        this.pollUntilSummariesGenerated(videoId)
+                    }, 5000); // Poll every 5 seconds
+                }
             })
-        } else {
-            console.log(`Error fetching data: ${response.status} ${response.statusText}`);
-        }
+            .catch(error => {
+                console.error('Error fetching updates:', error);
+            });
     }
 
     // TODO: Properly linkify chapter timestamps
+    // TODO: Improve styles and layout
     render() {
-        console.log(this.props)
         return (
             <div className={styles.container}>
                 <div className={styles.navbar}>
@@ -144,17 +128,15 @@ class Video extends Component<VideoProps, MyComponentState> {
                     </Link>
                 </div>
                 <div className={styles.fullSummary}>
-                    <p>{this.state.youtubeId}</p>
-                    <p>{this.state.language}</p>
                     <h1><strong>{this.state.video?.title}</strong></h1>
-                    <p>{this.state.video?.summary}</p>
+                    <p>{this.state.video?.summary ? this.state.video?.summary : <LoadingDots />}</p>
                 </div>
                 {this.state.video?.chapterDtos.map((chapterDto: any) => (
                     <div className={styles.chapterContainer} key={chapterDto.id}>
                         <a className={styles.videoStartTimeLink} href=""><h2><strong>{chapterDto.title}</strong></h2>
                             {formatSecondsToHHMMSS(chapterDto.startTimeSeconds)}
                         </a>
-                        <p>{chapterDto.summary}</p>
+                        { chapterDto.summary ? <p>{chapterDto.summary}</p> : <LoadingDots />}
                     </div>
                 ))}
             </div>
