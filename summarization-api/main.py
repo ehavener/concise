@@ -83,6 +83,7 @@ input_queue_url = 'https://sqs.us-west-1.amazonaws.com/887897278824/TextToSummar
 output_queue_url = 'https://sqs.us-west-1.amazonaws.com/887897278824/Summaries.fifo'
 
 try:
+    print("summarization-api running and listening...")
     while True:
         response = sqs.receive_message(
             QueueUrl=input_queue_url,
@@ -107,7 +108,9 @@ try:
             output_message_body = json.dumps({
                 "videoId": body["videoId"],
                 "chapterId": body["chapterId"],
-                "summary": summary})
+                "summaryLanguage": body["summaryLanguage"],
+                "summary": summary
+            })
 
             # Enqueue a new message to Summaries.fifo
             sqs.send_message(

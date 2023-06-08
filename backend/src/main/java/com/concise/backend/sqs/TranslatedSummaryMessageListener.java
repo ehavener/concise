@@ -1,5 +1,7 @@
-package com.concise.backend;
+package com.concise.backend.sqs;
 
+import com.concise.backend.ChapterServiceImpl;
+import com.concise.backend.VideoServiceImpl;
 import com.concise.backend.model.ChapterEntity;
 import com.concise.backend.model.VideoEntity;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -19,10 +21,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Component
-public class SummaryMessageListener {
+public class TranslatedSummaryMessageListener {
 
     private final SqsClient sqsClient;
-    private final String queueUrl = "https://sqs.us-west-1.amazonaws.com/887897278824/Summaries.fifo";
+    private final String translatedSummariesQueueUrl = "https://sqs.us-west-1.amazonaws.com/887897278824/TranslatedSummaries.fifo";
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     @Autowired
@@ -34,8 +36,9 @@ public class SummaryMessageListener {
     @Autowired
     private ChapterServiceImpl chapterService;
 
+
     @Autowired
-    public SummaryMessageListener(SqsClient sqsClient) {
+    public TranslatedSummaryMessageListener(SqsClient sqsClient) {
         this.sqsClient = sqsClient;
     }
 
@@ -48,7 +51,7 @@ public class SummaryMessageListener {
         while (!Thread.currentThread().isInterrupted()) {
             // Create the request to receive messages from the SQS queue
             ReceiveMessageRequest receiveMessageRequest = ReceiveMessageRequest.builder()
-                    .queueUrl(queueUrl)
+                    .queueUrl(translatedSummariesQueueUrl)
                     .attributeNames(QueueAttributeName.ALL)
                     .maxNumberOfMessages(1)
                     .messageAttributeNames("All")
@@ -85,13 +88,14 @@ public class SummaryMessageListener {
                     } else {
                         System.out.println("Error: videoId and chapterId are both null");
                     }
+
                 } catch (IOException e) {
                     System.out.println("Error parsing message body: " + e.getMessage());
                 }
 
                 // Delete the processed message from the queue
                 DeleteMessageRequest deleteMessageRequest = DeleteMessageRequest.builder()
-                        .queueUrl(queueUrl)
+                        .queueUrl(translatedSummariesQueueUrl)
                         .receiptHandle(message.receiptHandle())
                         .build();
                 sqsClient.deleteMessage(deleteMessageRequest);

@@ -2,7 +2,6 @@ import styles from "@/styles/login.module.css";
 import {Component} from "react";
 import {WithRouterProps} from "next/dist/client/with-router";
 import {NextRouter, withRouter} from "next/router";
-import {Language} from "@/pages/languages";
 import {TextInput} from '@primer/react-brand'
 import {Button} from '@primer/react-brand'
 import {Heading} from '@primer/react-brand'
@@ -67,7 +66,6 @@ class Login extends Component<LoginProps, LoginState> {
         event.preventDefault();
     }
 
-    // TODO: styles and layout for login page
     render() {
         return (
             <div className={styles.container}>

@@ -1,4 +1,4 @@
-package com.concise.backend;
+package com.concise.backend.sqs;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

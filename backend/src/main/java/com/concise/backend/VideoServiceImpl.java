@@ -1,6 +1,7 @@
 package com.concise.backend;
 
 import com.concise.backend.model.*;
+import com.concise.backend.sqs.SqsProducerService;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -90,8 +91,6 @@ public class VideoServiceImpl {
         return new VideoPreviewDto(videoTitle, thumbnailDetails.getHigh().getUrl());
     }
 
-    // TODO: What happens if a video has no captions available?
-    // TODO: Refactor this method to return summaries as they are completed, instead of waiting for all to finish
     public VideoWithChaptersDto createVideoFromYoutubeId(CreateVideoDto createVideoDto, UserEntity user) throws GeneralSecurityException, IOException {
         // Get chapter names and timestamps with from YouTube Data API using YouTubeChapterExtractorService.getVideoTimelineById
         YouTubeChapterExtractorService.VideoData videoData = YouTubeChapterExtractorService.getVideoTimelineById(createVideoDto.getYoutubeId());
@@ -122,7 +121,7 @@ public class VideoServiceImpl {
         videoEntity.setUser(userRepository.findById(user.getId()).get());
         VideoEntity createdVideo = addVideo(videoEntity);
 
-        // TODO: Application may hang when chapters=[]; application only fetches chapters that are defined in a description (youtube now auto-generates chapters from video)
+        // TODO: application only fetches chapters that are defined in a description (youtube now auto-generates chapters from video)
         // TODO: ...need to test this with a video that has no chapters
         // Map Transcript object to chapters using chapters from YouTube Data API and transcript from youtube-transcript-api microservice
         List<ChapterTranscript> chapterTranscripts = createChapterTranscripts(chapters, transcriptContainer);
@@ -143,14 +142,12 @@ public class VideoServiceImpl {
 
         // Get summary of full transcript with HTTP request to summarization-api microservice
         // TODO: fullSummary should be the concatenation of all 2-4 sentence summaries per each 10 minutes of video
-        enqueueToSummarize(videoEntity.getId(), null, fullTranscript);
+        enqueueToSummarize(videoEntity.getId(), null, fullTranscript, videoEntity.getSummaryLanguage());
 
         // Get summaries of chapter transcripts with HTTP requests to summarization-api microservice.
         for (int i = 0; i < createdChapters.size(); i++){
-            enqueueToSummarize(videoEntity.getId(), createdChapters.get(i).getId(), chapterTranscripts.get(i).getTranscript());
+            enqueueToSummarize(videoEntity.getId(), createdChapters.get(i).getId(), chapterTranscripts.get(i).getTranscript(), videoEntity.getSummaryLanguage());
         }
-
-        // TODO: Translate summaries if necessary with HTTP request to NLLB translation-api microservice
 
         return createdVideoWithChaptersDto;
     }
@@ -166,12 +163,13 @@ public class VideoServiceImpl {
         return responseObject;
     }
 
-    public void enqueueToSummarize(long videoId, Integer chapterId, String transcript) {
+    public void enqueueToSummarize(long videoId, Integer chapterId, String transcript, String summaryLanguage) {
         ObjectMapper objectMapper = new ObjectMapper();
         ObjectNode objectNode = objectMapper.createObjectNode();
         objectNode.put("videoId", videoId);
         objectNode.put("chapterId", chapterId);
         objectNode.put("transcript", transcript);
+        objectNode.put("summaryLanguage", summaryLanguage);
         String jsonMessage = objectNode.toString();
         sqsProducerService.sendMessageToTextToSummarizeQueue(jsonMessage, Long.toString(videoId));
     }
