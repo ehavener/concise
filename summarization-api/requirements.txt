@@ -4,3 +4,7 @@ boto3
 botocore
 sentencepiece
 scipy
+deepmultilingualpunctuation
+nltk
+sumy
+openai

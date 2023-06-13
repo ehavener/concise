@@ -9,7 +9,20 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import os
 import uuid
 
-# Load the model and tokenizer
+from deepmultilingualpunctuation import PunctuationModel
+import nltk
+from sumy.parsers.plaintext import PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.summarizers.lsa import LsaSummarizer
+import openai
+
+nltk.download('punkt')
+
+openai.api_key = os.getenv('OPENAI_API_KEY')
+
+punctuation_model = PunctuationModel()
+
+# Load the summarization model and tokenizer
 model_name = "jordiclive/flan-t5-11b-summarizer-filtered"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForSeq2SeqLM.from_pretrained(model_name, load_in_4bit=True, device_map="auto")
@@ -70,9 +83,38 @@ def generate(inputs, max_source_length=512, summarization_type=None, prompt=None
     return inputs, outputs, total_new_tokens
 
 
-def summarize(text):
+def summarize_chapter(text):
+    # TODO: Segment transcript text into sentences using punctuation model.
     _, outputs, _ = generate([text], summarization_type="video")
     return outputs[0]
+
+def summarize_full(text):
+    # Restore punctuation using deepmultilingualpunctuation
+    result = punctuation_model.restore_punctuation(text)
+
+    # Extract 50 sentences that best summarize the transcript using LSA so that is input around 1500 words
+    parser = PlaintextParser.from_string(result, Tokenizer("english"))
+    summarizer = LsaSummarizer()
+    lsa_summary = summarizer(parser.document, 50)
+    lsa_summary_string = " ".join(str(sentence) for sentence in lsa_summary)
+
+    # Call OpenAI API and return
+    gpt_response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful assistant."
+            },
+            {
+                "role": "user",
+                "content": "Below are 100 sentences extracted from a YouTube video transcript. Generate a summary in no more than 400 words: \n\n" + lsa_summary_string
+            }
+        ],
+        max_tokens=1000,
+        temperature=0.1
+    )
+    return gpt_response['choices'][0]['message']['content']
 
 
 sqs = boto3.client('sqs',
@@ -103,7 +145,10 @@ try:
             print("Received at ", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             body = json.loads(message['Body'])
 
-            summary = summarize(body["transcript"])
+            if body["type"] == "full":
+                summary = summarize_full(body["transcript"])
+            elif body["type"] == "chapter":
+                summary = summarize_chapter(body["transcript"])
 
             output_message_body = json.dumps({
                 "videoId": body["videoId"],

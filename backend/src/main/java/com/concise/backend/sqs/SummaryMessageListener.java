@@ -51,6 +51,7 @@ public class SummaryMessageListener {
     }
 
     public void processMessages() {
+        System.out.println("Listening for messages on Summaries queue...");
         while (!Thread.currentThread().isInterrupted()) {
             // Create the request to receive messages from the SQS queue
             ReceiveMessageRequest receiveMessageRequest = ReceiveMessageRequest.builder()
@@ -70,7 +71,7 @@ public class SummaryMessageListener {
                 String messageBody = message.body();
                 // ... Perform the necessary processing and update the database relations
 
-                System.out.println("Received message.");
+                System.out.println("Received message from Summaries queue.");
                 // Parse videoId, chapterId, and summary from messageBody
                 try {
                     JsonNode messageJson = objectMapper.readTree(messageBody);
@@ -94,7 +95,18 @@ public class SummaryMessageListener {
                             System.out.println("Error: videoId and chapterId are both null");
                         }
                     } else {
-                        enqueueToTranslateSummary(Long.parseLong(videoId), Integer.parseInt(chapterId), summary, summaryLanguage);
+                        try {
+                            long parsedVideoId = Long.parseLong(videoId);
+
+                            Integer parsedChapterId = null;
+                            if (chapterId != null && !chapterId.equals("null")) {
+                                parsedChapterId = Integer.parseInt(chapterId);
+                            }
+
+                            enqueueToTranslateSummary(parsedVideoId, parsedChapterId, summary, summaryLanguage);
+                        } catch (NumberFormatException e) {
+                            System.out.println("Error parsing videoId or chapterId: " + e.getMessage());
+                        }
                     }
 
                 } catch (IOException e) {
@@ -115,10 +127,15 @@ public class SummaryMessageListener {
         ObjectMapper objectMapper = new ObjectMapper();
         ObjectNode objectNode = objectMapper.createObjectNode();
         objectNode.put("videoId", videoId);
-        objectNode.put("chapterId", chapterId);
+        if (chapterId != null) {
+            objectNode.put("chapterId", chapterId);
+        } else {
+            objectNode.putNull("chapterId");
+        }
         objectNode.put("summary", summary);
         objectNode.put("summaryLanguage", summaryLanguage);
         String jsonMessage = objectNode.toString();
+        System.out.println("sendMessageToSummariesToTranslateQueue: " + jsonMessage);
         sqsProducerService.sendMessageToSummariesToTranslateQueue(jsonMessage, Long.toString(videoId));
     }
 }

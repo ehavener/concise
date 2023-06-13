@@ -121,8 +121,6 @@ public class VideoServiceImpl {
         videoEntity.setUser(userRepository.findById(user.getId()).get());
         VideoEntity createdVideo = addVideo(videoEntity);
 
-        // TODO: application only fetches chapters that are defined in a description (youtube now auto-generates chapters from video)
-        // TODO: ...need to test this with a video that has no chapters
         // Map Transcript object to chapters using chapters from YouTube Data API and transcript from youtube-transcript-api microservice
         List<ChapterTranscript> chapterTranscripts = createChapterTranscripts(chapters, transcriptContainer);
 
@@ -141,12 +139,11 @@ public class VideoServiceImpl {
         // Queue generation of video and chapters with summaries.
 
         // Get summary of full transcript with HTTP request to summarization-api microservice
-        // TODO: fullSummary should be the concatenation of all 2-4 sentence summaries per each 10 minutes of video
-        enqueueToSummarize(videoEntity.getId(), null, fullTranscript, videoEntity.getSummaryLanguage());
+        enqueueToSummarize("full", videoEntity.getId(), null, fullTranscript, videoEntity.getSummaryLanguage());
 
         // Get summaries of chapter transcripts with HTTP requests to summarization-api microservice.
         for (int i = 0; i < createdChapters.size(); i++){
-            enqueueToSummarize(videoEntity.getId(), createdChapters.get(i).getId(), chapterTranscripts.get(i).getTranscript(), videoEntity.getSummaryLanguage());
+            enqueueToSummarize("chapter", videoEntity.getId(), createdChapters.get(i).getId(), chapterTranscripts.get(i).getTranscript(), videoEntity.getSummaryLanguage());
         }
 
         return createdVideoWithChaptersDto;
@@ -163,9 +160,10 @@ public class VideoServiceImpl {
         return responseObject;
     }
 
-    public void enqueueToSummarize(long videoId, Integer chapterId, String transcript, String summaryLanguage) {
+    public void enqueueToSummarize(String type, long videoId, Integer chapterId, String transcript, String summaryLanguage) {
         ObjectMapper objectMapper = new ObjectMapper();
         ObjectNode objectNode = objectMapper.createObjectNode();
+        objectNode.put("type", type);
         objectNode.put("videoId", videoId);
         objectNode.put("chapterId", chapterId);
         objectNode.put("transcript", transcript);
@@ -298,7 +296,6 @@ public class VideoServiceImpl {
                 double transcriptEntryStartTimeSeconds = transcriptEntry.getStart();
                 double transcriptEntryEndTimeSeconds = transcriptEntry.getEndTimeSeconds();
                 // This will ignore transcript segments (not sentences) that start in one chapter and end in the following chapter.
-                // This is accounted for by the summarization-api which discards incomplete sentences at the beginning and end of each chapter.
                 if (transcriptEntryStartTimeSeconds >= chapterStartTimeSeconds &&
                         transcriptEntryEndTimeSeconds <= chapterEndTimeSeconds) {
                     chapterTranscriptBuilder.append(transcriptEntry.getText().replaceAll("\\r?\\n|\\r", " ") + " ");

@@ -48,6 +48,7 @@ public class TranslatedSummaryMessageListener {
     }
 
     public void processMessages() {
+        System.out.println("Listening for messages on TranslatedSummaries queue...");
         while (!Thread.currentThread().isInterrupted()) {
             // Create the request to receive messages from the SQS queue
             ReceiveMessageRequest receiveMessageRequest = ReceiveMessageRequest.builder()
@@ -67,7 +68,6 @@ public class TranslatedSummaryMessageListener {
                 String messageBody = message.body();
                 // ... Perform the necessary processing and update the database relations
 
-                System.out.println("Received message.");
                 // Parse videoId, chapterId, and summary from messageBody
                 try {
                     JsonNode messageJson = objectMapper.readTree(messageBody);
