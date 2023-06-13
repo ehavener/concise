@@ -11,6 +11,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install pinned protobuf version
+RUN pip install protobuf==3.20.0
+
 # Install latest versions of bitsandbites, transformers, accelerate
 RUN pip install -q -U bitsandbytes
 RUN pip install -q -U git+https://github.com/huggingface/transformers.git
