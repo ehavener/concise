@@ -3,7 +3,7 @@
 
 
 ### Introduction
-Concise is a web application for summarizing YouTube videos. Concise was developed primarily as an exercise in Java Spring Boot development and as an exercise in applying Transformer language models to solve problems like summarization and machine translation. (TODO: goal is fully locally runnable)
+Concise is a web application for summarizing YouTube videos. Concise was developed primarily as an exercise in Java and Spring Boot development and also an exercise in applying Transformer language models to solve problems like summarization and machine translation. The objective of Concise is to demonstrate the capabilities of consumer hardware in solving NLP tasks.
 
 ### Features
   - One-Click Summarization: ...
@@ -14,8 +14,8 @@ Concise is a web application for summarizing YouTube videos. Concise was develop
   - **Chrome Extension:** Provides quick access to the Concise application directly from any YouTube video.
   - **Transformers**: Provide detailed summaries of videos, which can be further translated into multiple languages.
   - **Authentication and User Management**: Standard user management system with JWT authentication for secure access.
-  - **Microservices**: Dedicated microservices for fetching video transcripts, summarization, and translation, ensuring scalibility.
-  - **Message Queues**: Language model inference takes time in the order of seconds. Combined with the reality that videos have several chapters, this makes REST alone unsuitable for processing requests. Some message queueing technique was required to provide a reliable service. After considering alternatives like RabbitMQ, I chose to implement Amazon SQS message queues for this project because they interface over regular REST requests and do not require any port forwarding for comunicating between environments. More specifically, this enabled me to develop locally against remote GPU servers without having to expose ports.
+  - **Microservices**: Dedicated microservices for fetching video transcripts, summarization, and translation, ensuring scalability.
+  - **Message Queues**: Language model inference takes time in the order of seconds. Combined with the reality that videos have several chapters, this makes REST alone unsuitable for processing requests. Some message queueing technique was required to provide a reliable service. After considering alternatives like RabbitMQ, I chose to implement Amazon SQS message queues for this project because they interface over regular REST requests and do not require any port forwarding for communicating between environments. More specifically, this enabled me to develop locally against remote GPU servers without having to expose ports.
 
 ### Technologies
   - **Frontend:** TypeScript, Next.js, HTML5, CSS3
@@ -29,7 +29,7 @@ Concise is a web application for summarizing YouTube videos. Concise was develop
 Concise uses Spring Boot in conjunction with NLP-task-specific python microservices than interface using queues.
 
 ### Development Setup
-Setting up the project requires following the setup instructions for each application. The recomended order is:
+Setting up the project requires following the setup instructions for each application. The recommended order is:
 
 1. [Transcript-api](https://github.com/ehavener/concise#transcript-api)
 2. [Backend](https://github.com/ehavener/concise#backend)
@@ -60,13 +60,13 @@ This is a python microservice that fetches video transcripts from YouTube's API.
 ### Setup
 1. Generate an API key by running `transcript-api/generate_api_key.py`. Backend's application.properties requires this api key for the value of `transcript.api.key`.
 2. run ```pip install -r requirements.txt```
-3. run ```/Users/emerson/concise/transcript-api/venv/bin/python -m uvicorn main:app --reload```
+3. run ```~/concise/transcript-api/venv/bin/python -m uvicorn main:app --reload```
 
 # Backend
 This is a Java Spring Boot application that provides JWT authentication and user management, persists and serves summaries, and sends requests to respective python APIs when necessary.
 ### Setup
 1. Install or run postgres
-2. Create `application.properties` at `~concise/backend/src/main/resources/application.properties`
+2. Create `application.properties` at `~/concise/backend/src/main/resources/application.properties`
 3. Add the following code to your application.properties file replacing bracketed code where present:
 ```
 spring.datasource.url=jdbc:postgresql://localhost:5432/{database}
@@ -90,7 +90,7 @@ translation.api.url=http://localhost:8002/translate/
 jwt.secret={The jwt secret key you generated in step 0}
 
 ```
-4. Replace the queue urls defined in `backend/src/main/java/com/concise/backend/sqs/SqsProducerService.java` and `backend/src/main/java/com/concise/backend/sqs/SummaryMessageListener.java` with your own Amazon SQS FIFO queues for `TextToSummarize`, `SummariesToTranslate`, and `Summaries`.
+4. Replace the queue urls defined in `~/concise/backend/src/main/java/com/concise/backend/sqs/SqsProducerService.java` and `~/concise/backend/src/main/java/com/concise/backend/sqs/SummaryMessageListener.java` with your own Amazon SQS FIFO queues for `TextToSummarize`, `SummariesToTranslate`, and `Summaries`.
 
 # Summarization-api
 This is a python microservice that summarizes transcripts using either `jordiclive/flan-t5-11b-summarizer-filtered` or `gpt-3.5-turbo`.
@@ -128,7 +128,7 @@ The extension can be loaded into chrome directly without any modification.
 3. On the Extensions page, you'll find a toggle on the top right for "Developer mode". Ensure it is enabled.
 4. Once you enable Developer Mode, you'll see additional options at the top of the page, including "Load unpacked".
 5. Click on "Load unpacked", and a file dialog will pop up.
-7. Select the directory (folder) with the extension's code i.e. (~/Downloads/concise/extension) and click the "Open" button.
+7. Select the directory (folder) with the extension's code i.e. (~/concise/extension) and click the "Open" button.
 8. You should see the extension icon in your Chrome toolbar.
 
 # Frontend
