@@ -1,4 +1,6 @@
 # Concise Video Summarizer
+![concise-gif-lq](https://github.com/ehavener/concise/assets/18430808/ee8c53bd-4aea-430e-a5e4-f6b8fe5ed1f9)
+
 
 ### Introduction
 Concise is a web application for summarizing YouTube videos. Concise was developed primarily as an exercise in Java Spring Boot development and as an exercise in applying Transformer language models to solve problems like summarization and machine translation. (TODO: goal is fully locally runnable)
@@ -13,7 +15,7 @@ Concise is a web application for summarizing YouTube videos. Concise was develop
   - **Transformers**: Provide detailed summaries of videos, which can be further translated into multiple languages.
   - **Authentication and User Management**: Standard user management system with JWT authentication for secure access.
   - **Microservices**: Dedicated microservices for fetching video transcripts, summarization, and translation, ensuring scalibility.
-  - **Message Queues**: (TODO)
+  - **Message Queues**: Language model inference takes time in the order of seconds. Combined with the reality that videos have several chapters, this makes REST alone unsuitable for processing requests. Some message queueing technique was required to provide a reliable service. After considering alternatives like RabbitMQ, I chose to implement Amazon SQS message queues for this project because they interface over regular REST requests and do not require any port forwarding for comunicating between environments. More specifically, this enabled me to develop locally against remote GPU servers without having to expose ports.
 
 ### Technologies
   - **Frontend:** TypeScript, Next.js, HTML5, CSS3
@@ -111,8 +113,11 @@ docker build -t translation-api .
 docker tag translation-api:latest {username}/translation-api:latest
 docker push {username}/translation-api:latest
 ```
-3. Load and start the docker container on a service of your choosing.
-4. Once the docker container has started the service will be available. If for some reason it does not run you may run it manually from within the container.
+3. Load and start the docker container on a service of your choosing. Ensure the following environment variables are available so that the application can access your SQS queues (replace the ...):
+```
+AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_REGION=...
+```
+5. Once the docker container has started the service will be available. If for some reason it does not run you may run it manually from within the container.
 
 # Extension
 This application contains a Google Chrome extension that wraps the NextJS frontend.
