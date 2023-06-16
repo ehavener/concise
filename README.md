@@ -69,7 +69,7 @@ This is a Java Spring Boot application that provides JWT authentication and user
 ```
 spring.datasource.url=jdbc:postgresql://localhost:5432/{database}
 spring.datasource.username={username}
-spring.datasource.password=
+spring.datasource.password={password}
 
 spring.datasource.driverClassName=org.postgresql.Driver
 spring.jpa.database-platform=org.hibernate.dialect.PostgreSQL9Dialect
@@ -82,8 +82,6 @@ youtube.api.key={YouTube API v3 key obtained from Google Cloud}
 
 transcript.api.url=http://localhost:8000/transcript/
 transcript.api.key={The internal API key generated when setting up transcript-api}
-summarization.api.url=http://localhost:8001/summarize/
-translation.api.url=http://localhost:8002/translate/
 
 jwt.secret={JWT secret key generated in step 1}
 
