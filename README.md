@@ -3,7 +3,7 @@
 
 
 ### Introduction
-Concise is a web application for summarizing YouTube videos. Concise was developed primarily as an exercise in Java and Spring Boot development. It was additionally developed as an exercise in applying Transformer language models to solve problems like summarization and machine translation. An objective of Concise is to demonstrate the capabilities of consumer hardware in solving NLP tasks. The application currently relies on gpt-3.5-turbo for main summaries and a long term goal for this project is to not depend on any closed source models.
+Concise is a web application for summarizing YouTube videos. Concise was developed primarily as an exercise in Java and Spring Boot development. It was additionally developed as an exercise in applying Transformer language models to solve problems like summarization and machine translation. An objective of Concise is to demonstrate the capabilities of consumer hardware in solving NLP tasks. The application currently relies on gpt-3.5-turbo for main summaries and a long term goal for this project is to remove dependencies on closed source models.
 
 ### Features
   - Two-Click Summarization: Summarize YouTube videos without leaving the page.
@@ -26,7 +26,7 @@ Concise is a web application for summarizing YouTube videos. Concise was develop
   - **Third Party APIs:** YouTube Data API
 
 ### Architecture
-Concise uses Spring Boot in conjunction with NLP-task-specific python microservices than interface using queues.
+Concise uses Spring Boot in conjunction with NLP task specific python microservices that interface using queues.
 
 ### Application State Diagrams
 Rectangle backgrounds designate the service and squares/diamonds designate the state.
